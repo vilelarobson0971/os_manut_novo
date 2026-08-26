@@ -402,7 +402,7 @@
 
     .charts {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0,1fr));
+      grid-template-columns: repeat(3, minmax(0,1fr));
       gap: 18px;
     }
 
@@ -1009,7 +1009,7 @@ function renderInicio() {
       <ul>
         <li>📝 <strong>Cadastro</strong> de novas ordens de serviço</li>
         <li>🔍 <strong>Busca avançada</strong> e exclusão de OS (na área de Supervisão)</li>
-        <li>📊 <strong>Dashboard</strong> com análises gráficas</li>
+        <li>📊 <strong>Dashboard</strong> com análises gráficas em pizza</li>
         <li>🔐 <strong>Supervisão</strong> para atualização, busca, exclusão e backups</li>
       </ul>
     </div>
@@ -1122,7 +1122,7 @@ function renderCadastrar() {
 }
 
 /* ================================================================
-   DASHBOARD
+   DASHBOARD - TODOS OS GRÁFICOS EM PIZZA (DOUGHNUT)
    ================================================================ */
 function renderDashboard() {
   const container = document.getElementById("page-dashboard");
@@ -1130,6 +1130,7 @@ function renderDashboard() {
   container.innerHTML = `
     <div class="card">
       <h2>📊 Dashboard Analítico</h2>
+      <div class="alert alert-info">Todos os gráficos são exibidos no formato pizza (doughnut).</div>
 
       <div class="tabs">
         <button class="tab active" data-tab="tipos">🔧 Tipos</button>
@@ -1214,6 +1215,7 @@ function renderDashboard() {
   });
 
   desenharGraficoTipos();
+  desenharGraficoExecutantes();
   desenharGraficoStatus();
 }
 
@@ -1226,6 +1228,7 @@ function contar(lista, campo) {
   return mapa;
 }
 
+// Gráfico de Tipos - Doughnut (pizza)
 function desenharGraficoTipos() {
   if (!window.Chart) return;
 
@@ -1237,12 +1240,32 @@ function desenharGraficoTipos() {
 
   chartTipo = new Chart(document.getElementById("chartTipoCanvas"), {
     type: "doughnut",
-    data: { labels, datasets: [{ data: values }] },
+    data: { 
+      labels: labels.length ? labels : ["Sem dados"], 
+      datasets: [{ 
+        data: labels.length ? values : [1],
+        backgroundColor: [
+          '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40',
+          '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'
+        ]
+      }] 
+    },
     options: {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: { position: "right" }
+        legend: { position: 'right' },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              let label = context.label || '';
+              let value = context.parsed || 0;
+              let total = context.dataset.data.reduce((a, b) => a + b, 0);
+              let percentage = total > 0 ? Math.round((value / total) * 100) : 0;
+              return label + ': ' + value + ' (' + percentage + '%)';
+            }
+          }
+        }
       }
     }
   });
@@ -1258,6 +1281,7 @@ function parseDataBR(valor) {
   return data;
 }
 
+// Gráfico de Executantes - Doughnut (pizza)
 function desenharGraficoExecutantes() {
   if (!window.Chart) return;
 
@@ -1280,19 +1304,40 @@ function desenharGraficoExecutantes() {
 
   const mapa = {};
   nomes.forEach(nome => mapa[nome] = (mapa[nome] || 0) + 1);
+  const labels = Object.keys(mapa);
+  const values = Object.values(mapa);
 
   if (chartExecutantes) chartExecutantes.destroy();
 
   chartExecutantes = new Chart(document.getElementById("chartExecutantesCanvas"), {
     type: "doughnut",
-    data: {
-      labels: Object.keys(mapa),
-      datasets: [{ data: Object.values(mapa) }]
+    data: { 
+      labels: labels.length ? labels : ["Sem dados"], 
+      datasets: [{ 
+        data: labels.length ? values : [1],
+        backgroundColor: [
+          '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40',
+          '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'
+        ]
+      }] 
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      plugins: { legend: { position: "right" } }
+      plugins: {
+        legend: { position: 'right' },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              let label = context.label || '';
+              let value = context.parsed || 0;
+              let total = context.dataset.data.reduce((a, b) => a + b, 0);
+              let percentage = total > 0 ? Math.round((value / total) * 100) : 0;
+              return label + ': ' + value + ' (' + percentage + '%)';
+            }
+          }
+        }
+      }
     }
   });
 
@@ -1301,27 +1346,44 @@ function desenharGraficoExecutantes() {
   }
 }
 
+// Gráfico de Status - Doughnut (pizza)
 function desenharGraficoStatus() {
   if (!window.Chart) return;
 
   const mapa = contar(dados, "status");
+  const labels = Object.keys(mapa);
+  const values = Object.values(mapa);
 
   if (chartStatus) chartStatus.destroy();
 
   chartStatus = new Chart(document.getElementById("chartStatusCanvas"), {
-    type: "bar",
-    data: {
-      labels: Object.keys(mapa),
-      datasets: [{
-        label: "Quantidade de OS",
-        data: Object.values(mapa)
-      }]
+    type: "doughnut",
+    data: { 
+      labels: labels.length ? labels : ["Sem dados"], 
+      datasets: [{ 
+        data: labels.length ? values : [1],
+        backgroundColor: [
+          '#FFCE56', '#36A2EB', '#4BC0C0', '#66BB6A'
+        ]
+      }] 
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+      plugins: {
+        legend: { position: 'right' },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              let label = context.label || '';
+              let value = context.parsed || 0;
+              let total = context.dataset.data.reduce((a, b) => a + b, 0);
+              let percentage = total > 0 ? Math.round((value / total) * 100) : 0;
+              return label + ': ' + value + ' (' + percentage + '%)';
+            }
+          }
+        }
+      }
     }
   });
 }
@@ -1368,13 +1430,11 @@ function renderSupervisao() {
         <button class="tab active" data-super="buscar">🔍 Buscar OS</button>
         <button class="tab" data-super="atualizar">🔄 Atualizar OS</button>
         <button class="tab" data-super="backups">💾 Gerenciar Backups</button>
-        <button class="tab" data-super="config">⚙️ Configuração Supabase</button>
       </div>
 
       <div id="superBuscar"></div>
       <div id="superAtualizar" class="hidden"></div>
       <div id="superBackups" class="hidden"></div>
-      <div id="superConfig" class="hidden"></div>
     </div>
   `;
 
@@ -1386,12 +1446,10 @@ function renderSupervisao() {
       document.getElementById("superBuscar").classList.toggle("hidden", btn.dataset.super !== "buscar");
       document.getElementById("superAtualizar").classList.toggle("hidden", btn.dataset.super !== "atualizar");
       document.getElementById("superBackups").classList.toggle("hidden", btn.dataset.super !== "backups");
-      document.getElementById("superConfig").classList.toggle("hidden", btn.dataset.super !== "config");
 
       if (btn.dataset.super === "buscar") renderSuperBuscar();
       if (btn.dataset.super === "atualizar") renderSuperAtualizar();
       if (btn.dataset.super === "backups") renderBackups();
-      if (btn.dataset.super === "config") renderConfigSupabase();
     });
   });
 
@@ -1515,6 +1573,7 @@ function tabelaOSComExclusaoSuper(lista) {
       <table>
         <thead>
           <tr>
+            <th>Ações</th>
             <th>ID</th>
             <th>Descrição</th>
             <th>Data</th>
@@ -1529,12 +1588,16 @@ function tabelaOSComExclusaoSuper(lista) {
             <th>Executante 2</th>
             <th>Urgente</th>
             <th>Observações</th>
-            <th>Ações</th>
           </tr>
         </thead>
         <tbody>
           ${lista.map(os => `
             <tr>
+              <td>
+                <button class="btn-danger btn-sm" onclick="excluirOS(${os.id})" title="Excluir OS #${os.id}">
+                  🗑️ Excluir
+                </button>
+              </td>
               <td><strong>${escapeHtml(os.id)}</strong></td>
               <td>${escapeHtml(os.descricao)}</td>
               <td>${escapeHtml(os.data)}</td>
@@ -1549,11 +1612,6 @@ function tabelaOSComExclusaoSuper(lista) {
               <td>${escapeHtml(os.executante2)}</td>
               <td>${badgeUrgente(os.urgente)}</td>
               <td>${escapeHtml(os.observacoes)}</td>
-              <td>
-                <button class="btn-danger btn-sm" onclick="excluirOS(${os.id})" title="Excluir OS #${os.id}">
-                  🗑️ Excluir
-                </button>
-              </td>
             </tr>
           `).join("")}
         </tbody>
@@ -1941,81 +1999,6 @@ function renderBackups() {
       : `<div class="empty">Nenhum backup disponível.</div>`
     }
   `;
-}
-
-/* ================================================================
-   CONFIGURAÇÃO
-   ================================================================ */
-function renderConfigSupabase() {
-  const container = document.getElementById("superConfig");
-
-  container.innerHTML = `
-    <h3>⚙️ Configuração do Supabase</h3>
-
-    <div class="alert alert-warning">
-      A URL e a chave anon são usadas pelo navegador. Nunca coloque a
-      <strong>service_role key</strong> neste arquivo.
-    </div>
-
-    <div class="field">
-      <label>URL atual</label>
-      <input value="${escapeHtml(SUPABASE_URL)}" disabled>
-    </div>
-
-    <div class="field">
-      <label>Tabela</label>
-      <input value="${escapeHtml(TABLE_NAME)}" disabled>
-    </div>
-
-    <div class="field">
-      <label>Status da conexão</label>
-      <input id="statusConfig" value="Verificando..." disabled>
-    </div>
-
-    <div class="actions">
-      <button class="btn-primary" onclick="testarConfiguracao()">🔌 Testar conexão</button>
-      <button class="btn-secondary" onclick="exportarCSV()">📥 Exportar dados CSV</button>
-    </div>
-
-    <hr>
-
-    <h4>Estrutura utilizada pela aplicação</h4>
-    <div class="table-wrap">
-      <table style="min-width:500px">
-        <thead><tr><th>Campo Supabase</th><th>Uso</th></tr></thead>
-        <tbody>
-          <tr><td>id</td><td>Identificador da OS (auto-incremento)</td></tr>
-          <tr><td>descricao</td><td>Descrição da atividade</td></tr>
-          <tr><td>data</td><td>Data de abertura</td></tr>
-          <tr><td>hora_abertura</td><td>Hora de abertura</td></tr>
-          <tr><td>solicitante</td><td>Solicitante</td></tr>
-          <tr><td>local</td><td>Local</td></tr>
-          <tr><td>tipo</td><td>Tipo de manutenção</td></tr>
-          <tr><td>status</td><td>Status da OS</td></tr>
-          <tr><td>data_conclusao</td><td>Data de conclusão</td></tr>
-          <tr><td>hora_conclusao</td><td>Hora de conclusão</td></tr>
-          <tr><td>executante1</td><td>Executante principal</td></tr>
-          <tr><td>executante2</td><td>Executante secundário</td></tr>
-          <tr><td>urgente</td><td>Sim / Não</td></tr>
-          <tr><td>observacoes</td><td>Observações</td></tr>
-        </tbody>
-      </table>
-    </div>
-  `;
-
-  testarConfiguracao();
-}
-
-async function testarConfiguracao() {
-  const campo = document.getElementById("statusConfig");
-  if (!campo) return;
-
-  campo.value = "Testando...";
-
-  const ok = await testarConexao();
-  campo.value = ok
-    ? "Conectado com sucesso"
-    : "Falha na conexão - verifique URL, anon key, tabela e RLS";
 }
 
 /* ================================================================
