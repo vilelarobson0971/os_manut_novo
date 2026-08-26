@@ -288,8 +288,6 @@
       color: #fff;
     }
 
-    .btn-danger:hover { background: #b71c1c; }
-
     .btn-warning {
       background: var(--warning);
       color: #fff;
@@ -339,7 +337,7 @@
     table {
       width: 100%;
       border-collapse: collapse;
-      min-width: 1200px;
+      min-width: 1100px;
     }
 
     th, td {
@@ -505,11 +503,6 @@
       border-radius: 10px;
       transition: width 0.3s ease;
       width: 0%;
-    }
-
-    .btn-sm {
-      padding: 4px 8px;
-      font-size: 12px;
     }
 
     @media (max-width: 900px) {
@@ -839,64 +832,6 @@ async function atualizarOSNoBanco(id, alteracoes) {
 }
 
 /* ================================================================
-   FUNÇÃO DE EXCLUSÃO - NOVA
-   ================================================================ */
-async function excluirOS(id) {
-  if (!supabaseClient) {
-    mostrarToast("Supabase não configurado.", "danger");
-    return false;
-  }
-
-  // Busca a OS para exibir confirmação
-  const os = dados.find(x => x.id === id);
-  if (!os) {
-    mostrarToast("OS não encontrada.", "danger");
-    return false;
-  }
-
-  // Confirmação com o usuário
-  const confirmar = confirm(
-    `⚠️ ATENÇÃO: Você está prestes a EXCLUIR a OS #${id}\n\n` +
-    `Descrição: ${os.descricao}\n` +
-    `Solicitante: ${os.solicitante}\n` +
-    `Local: ${os.local}\n\n` +
-    `Esta ação NÃO pode ser desfeita!\n\n` +
-    `Deseja realmente excluir esta OS?`
-  );
-
-  if (!confirmar) {
-    mostrarToast("Exclusão cancelada.", "info");
-    return false;
-  }
-
-  try {
-    const { error } = await supabaseClient
-      .from(TABLE_NAME)
-      .delete()
-      .eq("id", id);
-
-    if (error) throw error;
-
-    await carregarDados();
-    mostrarToast(`OS #${id} excluída com sucesso!`, "success");
-    
-    // Recarrega a página atual se estiver na listagem
-    const pageAtual = document.querySelector(".page-section:not(.hidden)")?.id;
-    if (pageAtual === "page-listar") {
-      renderListar();
-    } else if (pageAtual === "page-buscar") {
-      renderBuscar();
-    }
-    
-    return true;
-  } catch (erro) {
-    console.error("Erro ao excluir:", erro);
-    mostrarToast("Não foi possível excluir a OS: " + erro.message, "danger");
-    return false;
-  }
-}
-
-/* ================================================================
    UTILITÁRIOS
    ================================================================ */
 function agoraBrasil() {
@@ -1020,7 +955,6 @@ function renderInicio() {
         <li>🔍 <strong>Busca</strong> avançada por diversos critérios</li>
         <li>📊 <strong>Dashboard</strong> com análises gráficas</li>
         <li>🔐 <strong>Supervisão</strong> para atualização e backups</li>
-        <li>🗑️ <strong>Exclusão</strong> de OS (com confirmação)</li>
       </ul>
     </div>
 
@@ -1132,7 +1066,7 @@ function renderCadastrar() {
 }
 
 /* ================================================================
-   LISTAGEM - COM BOTÃO DE EXCLUIR
+   LISTAGEM
    ================================================================ */
 function renderListar() {
   const container = document.getElementById("page-listar");
@@ -1207,7 +1141,6 @@ function tabelaOS(lista) {
             <th>Executante 2</th>
             <th>Urgente</th>
             <th>Observações</th>
-            <th>Ações</th>
           </tr>
         </thead>
         <tbody>
@@ -1227,11 +1160,6 @@ function tabelaOS(lista) {
               <td>${escapeHtml(os.executante2)}</td>
               <td>${badgeUrgente(os.urgente)}</td>
               <td>${escapeHtml(os.observacoes)}</td>
-              <td>
-                <button class="btn-danger btn-sm" onclick="excluirOS(${os.id})" title="Excluir OS #${os.id}">
-                  🗑️ Excluir
-                </button>
-              </td>
             </tr>
           `).join("")}
         </tbody>
@@ -1241,7 +1169,7 @@ function tabelaOS(lista) {
 }
 
 /* ================================================================
-   BUSCA - COM BOTÃO DE EXCLUIR
+   BUSCA
    ================================================================ */
 function renderBuscar() {
   const container = document.getElementById("page-buscar");
@@ -1342,65 +1270,7 @@ function executarBusca() {
         ? `Encontradas ${resultado.length} OS:`
         : "Nenhuma OS encontrada com os critérios informados."}
     </div>
-    ${resultado.length ? tabelaOSComExclusao(resultado) : ""}
-  `;
-}
-
-// Versão da tabela com botão de exclusão para a busca
-function tabelaOSComExclusao(lista) {
-  if (!lista.length) {
-    return `<div class="empty">Nenhuma ordem de serviço encontrada.</div>`;
-  }
-
-  return `
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Descrição</th>
-            <th>Data</th>
-            <th>Hora Abertura</th>
-            <th>Solicitante</th>
-            <th>Local</th>
-            <th>Tipo</th>
-            <th>Status</th>
-            <th>Data Conclusão</th>
-            <th>Hora Conclusão</th>
-            <th>Executante 1</th>
-            <th>Executante 2</th>
-            <th>Urgente</th>
-            <th>Observações</th>
-            <th>Ações</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${lista.map(os => `
-            <tr>
-              <td><strong>${escapeHtml(os.id)}</strong></td>
-              <td>${escapeHtml(os.descricao)}</td>
-              <td>${escapeHtml(os.data)}</td>
-              <td>${escapeHtml(os.hora_abertura)}</td>
-              <td>${escapeHtml(os.solicitante)}</td>
-              <td>${escapeHtml(os.local)}</td>
-              <td>${escapeHtml(os.tipo)}</td>
-              <td>${badgeStatus(os.status)}</td>
-              <td>${escapeHtml(os.data_conclusao)}</td>
-              <td>${escapeHtml(os.hora_conclusao)}</td>
-              <td>${escapeHtml(os.executante1)}</td>
-              <td>${escapeHtml(os.executante2)}</td>
-              <td>${badgeUrgente(os.urgente)}</td>
-              <td>${escapeHtml(os.observacoes)}</td>
-              <td>
-                <button class="btn-danger btn-sm" onclick="excluirOS(${os.id})" title="Excluir OS #${os.id}">
-                  🗑️ Excluir
-                </button>
-              </td>
-            </tr>
-          `).join("")}
-        </tbody>
-      </table>
-    </div>
+    ${resultado.length ? tabelaOS(resultado) : ""}
   `;
 }
 
@@ -2131,7 +2001,7 @@ async function testarConfiguracao() {
 }
 
 /* ================================================================
-   IMPORTAÇÃO DE DADOS ANTIGOS
+   IMPORTAÇÃO DE DADOS ANTIGOS - CORRIGIDO PARA SUPORTAR MAIS DE 1000 REGISTROS
    ================================================================ */
 function abrirImportacaoCSV() {
   const root = document.getElementById("modalRoot");
