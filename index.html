@@ -14,7 +14,7 @@
     2) Execute o SQL abaixo no SQL Editor do Supabase:
 
     create table if not exists public.ordens_servico (
-      id bigint primary key,
+      id bigserial primary key,
       descricao text not null,
       data text,
       hora_abertura text,
@@ -491,6 +491,23 @@
       overflow: auto;
     }
 
+    .progress-bar {
+      width: 100%;
+      height: 20px;
+      background: #e9ecef;
+      border-radius: 10px;
+      overflow: hidden;
+      margin: 10px 0;
+    }
+
+    .progress-bar .fill {
+      height: 100%;
+      background: var(--primary);
+      border-radius: 10px;
+      transition: width 0.3s ease;
+      width: 0%;
+    }
+
     @media (max-width: 900px) {
       .sidebar {
         transform: translateX(-100%);
@@ -767,9 +784,12 @@ async function inserirOS(registro) {
   }
 
   try {
+    // Remove o id para usar auto-incremento do banco
+    const { id, ...registroSemId } = registro;
+    
     const { error } = await supabaseClient
       .from(TABLE_NAME)
-      .insert([registro]);
+      .insert([registroSemId]);
 
     if (error) throw error;
 
@@ -777,7 +797,13 @@ async function inserirOS(registro) {
     return true;
   } catch (erro) {
     console.error("Erro ao inserir:", erro);
-    mostrarToast("Não foi possível salvar a OS: " + erro.message, "danger");
+    
+    // Verifica se é erro de chave duplicada
+    if (erro.message && erro.message.includes("duplicate key")) {
+      mostrarToast("Erro: Já existe uma OS com este ID. O sistema usa auto-incremento, não tente definir o ID manualmente.", "danger");
+    } else {
+      mostrarToast("Não foi possível salvar a OS: " + erro.message, "danger");
+    }
     return false;
   }
 }
@@ -826,11 +852,6 @@ function agoraBrasil() {
     data: `${get("day")}/${get("month")}/${get("year")}`,
     hora: `${get("hour")}:${get("minute")}`
   };
-}
-
-function proximoID() {
-  if (!dados.length) return 1;
-  return Math.max(...dados.map(x => Number(x.id) || 0)) + 1;
 }
 
 function escapeHtml(valor) {
@@ -1017,7 +1038,6 @@ function renderCadastrar() {
     const agora = agoraBrasil();
 
     const novaOS = {
-      id: proximoID(),
       descricao,
       data: agora.data,
       hora_abertura: agora.hora,
@@ -1694,10 +1714,6 @@ function atualizarPreviewConclusao() {
 
 /* ================================================================
    BACKUPS
-   ================================================================
-   Como o GitHub Pages não possui filesystem persistente para o usuário,
-   os backups são armazenados no localStorage e também podem ser baixados.
-   O banco continua sendo o Supabase.
    ================================================================ */
 function chaveBackups() {
   return "kingjoe_os_backups_v1";
@@ -1984,10 +2000,7 @@ async function testarConfiguracao() {
 }
 
 /* ================================================================
-   IMPORTAÇÃO DE DADOS ANTIGOS
-   ================================================================
-   Permite selecionar um CSV exportado da versão Python.
-   Isso ajuda na migração inicial para o Supabase.
+   IMPORTAÇÃO DE DADOS ANTIGOS - CORRIGIDO PARA SUPORTAR MAIS DE 1000 REGISTROS
    ================================================================ */
 function abrirImportacaoCSV() {
   const root = document.getElementById("modalRoot");
@@ -2002,7 +2015,10 @@ function abrirImportacaoCSV() {
           <button class="btn-primary" onclick="importarCSVSelecionado()">Importar</button>
           <button class="btn-secondary" onclick="fecharModal()">Cancelar</button>
         </div>
-        <div id="progressoImportacao"></div>
+        <div id="progressoImportacao">
+          <div class="progress-bar"><div class="fill" id="progressBarFill"></div></div>
+          <div id="progressoTexto">Aguardando arquivo...</div>
+        </div>
       </div>
     </div>
   `;
@@ -2012,6 +2028,13 @@ function fecharModal() {
   document.getElementById("modalRoot").innerHTML = "";
 }
 
+function atualizarProgresso(percentual, texto) {
+  const fill = document.getElementById("progressBarFill");
+  const textoEl = document.getElementById("progressoTexto");
+  if (fill) fill.style.width = percentual + "%";
+  if (textoEl) textoEl.textContent = texto;
+}
+
 async function importarCSVSelecionado() {
   const arquivo = document.getElementById("arquivoCSV").files[0];
 
@@ -2019,6 +2042,8 @@ async function importarCSVSelecionado() {
     mostrarToast("Selecione um arquivo CSV.", "warning");
     return;
   }
+
+  atualizarProgresso(0, "Lendo arquivo...");
 
   try {
     const texto = await arquivo.text();
@@ -2068,8 +2093,12 @@ async function importarCSVSelecionado() {
         exec1 = get("executanteAntigo");
       }
 
+      // Ignora registros sem ID ou descrição
+      const idStr = get("id");
+      if (!idStr || !get("descricao")) continue;
+
       registros.push({
-        id: Number(get("id")),
+        id: Number(idStr),
         descricao: get("descricao"),
         data: get("data"),
         hora_abertura: get("hora"),
@@ -2092,21 +2121,73 @@ async function importarCSVSelecionado() {
       throw new Error("Nenhum registro válido encontrado.");
     }
 
-    const { error } = await supabaseClient
-      .from(TABLE_NAME)
-      .upsert(validos, { onConflict: "id" });
+    atualizarProgresso(10, `Preparando ${validos.length} registros para importação...`);
 
-    if (error) throw error;
+    // Dividir em lotes de 900 registros (abaixo do limite de 1000)
+    const BATCH_SIZE = 900;
+    const totalBatches = Math.ceil(validos.length / BATCH_SIZE);
+    let importados = 0;
+    let erros = [];
+
+    for (let batch = 0; batch < totalBatches; batch++) {
+      const inicio = batch * BATCH_SIZE;
+      const fim = Math.min(inicio + BATCH_SIZE, validos.length);
+      const lote = validos.slice(inicio, fim);
+
+      const percentual = 10 + (batch / totalBatches) * 80;
+      atualizarProgresso(percentual, `Importando lote ${batch + 1} de ${totalBatches} (${lote.length} registros)...`);
+
+      try {
+        // Usar upsert com onConflict para evitar duplicatas
+        const { error } = await supabaseClient
+          .from(TABLE_NAME)
+          .upsert(lote, { onConflict: "id" });
+
+        if (error) {
+          // Se der erro, tenta inserir um por um para identificar qual deu problema
+          console.warn("Erro no lote, tentando individualmente:", error);
+          for (const reg of lote) {
+            try {
+              const { error: singleError } = await supabaseClient
+                .from(TABLE_NAME)
+                .upsert([reg], { onConflict: "id" });
+              if (singleError) {
+                erros.push(`ID ${reg.id}: ${singleError.message}`);
+              } else {
+                importados++;
+              }
+            } catch (e) {
+              erros.push(`ID ${reg.id}: ${e.message}`);
+            }
+          }
+        } else {
+          importados += lote.length;
+        }
+      } catch (e) {
+        erros.push(`Lote ${batch + 1}: ${e.message}`);
+      }
+    }
+
+    atualizarProgresso(95, "Finalizando...");
 
     await carregarDados();
     fecharModal();
-    mostrarToast(`${validos.length} OS importadas para o Supabase.`, "success");
+
+    let msg = `${importados} OS importadas para o Supabase.`;
+    if (erros.length > 0) {
+      msg += `\nErros em ${erros.length} registros: ${erros.slice(0, 5).join("; ")}${erros.length > 5 ? "..." : ""}`;
+      mostrarToast(msg, "warning");
+    } else {
+      mostrarToast(msg, "success");
+    }
+
     abrirPagina("listar");
 
   } catch (erro) {
     console.error(erro);
-    document.getElementById("progressoImportacao").innerHTML =
+    document.getElementById("progressoTexto").innerHTML =
       `<div class="alert alert-danger">${escapeHtml(erro.message)}</div>`;
+    mostrarToast("Erro na importação: " + erro.message, "danger");
   }
 }
 
