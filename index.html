@@ -550,8 +550,6 @@
 
       <button class="menu-btn active" data-page="inicio">🏠 Página Inicial</button>
       <button class="menu-btn" data-page="cadastrar">📝 Cadastrar OS</button>
-      <button class="menu-btn" data-page="listar">📋 Listar OS</button>
-      <button class="menu-btn" data-page="buscar">🔍 Buscar OS</button>
       <button class="menu-btn" data-page="dashboard">📊 Dashboard</button>
       <button class="menu-btn" data-page="supervisao">🔐 Supervisão</button>
 
@@ -579,8 +577,6 @@
 
         <section id="page-inicio" class="page-section"></section>
         <section id="page-cadastrar" class="page-section hidden"></section>
-        <section id="page-listar" class="page-section hidden"></section>
-        <section id="page-buscar" class="page-section hidden"></section>
         <section id="page-dashboard" class="page-section hidden"></section>
         <section id="page-supervisao" class="page-section hidden"></section>
       </div>
@@ -664,8 +660,6 @@ function abrirPagina(page) {
 
   if (page === "inicio") renderInicio();
   if (page === "cadastrar") renderCadastrar();
-  if (page === "listar") renderListar();
-  if (page === "buscar") renderBuscar();
   if (page === "dashboard") renderDashboard();
   if (page === "supervisao") renderSupervisao();
 }
@@ -839,7 +833,7 @@ async function atualizarOSNoBanco(id, alteracoes) {
 }
 
 /* ================================================================
-   FUNÇÃO DE EXCLUSÃO - NOVA
+   FUNÇÃO DE EXCLUSÃO
    ================================================================ */
 async function excluirOS(id) {
   if (!supabaseClient) {
@@ -880,12 +874,10 @@ async function excluirOS(id) {
     await carregarDados();
     mostrarToast(`OS #${id} excluída com sucesso!`, "success");
     
-    // Recarrega a página atual se estiver na listagem
+    // Recarrega a página de supervisão se estiver ativa
     const pageAtual = document.querySelector(".page-section:not(.hidden)")?.id;
-    if (pageAtual === "page-listar") {
-      renderListar();
-    } else if (pageAtual === "page-buscar") {
-      renderBuscar();
+    if (pageAtual === "page-supervisao") {
+      renderSupervisao();
     }
     
     return true;
@@ -1016,11 +1008,9 @@ function renderInicio() {
       <strong>Funcionalidades disponíveis:</strong>
       <ul>
         <li>📝 <strong>Cadastro</strong> de novas ordens de serviço</li>
-        <li>📋 <strong>Listagem</strong> completa de OS cadastradas</li>
-        <li>🔍 <strong>Busca</strong> avançada por diversos critérios</li>
+        <li>🔍 <strong>Busca avançada</strong> e exclusão de OS (na área de Supervisão)</li>
         <li>📊 <strong>Dashboard</strong> com análises gráficas</li>
-        <li>🔐 <strong>Supervisão</strong> para atualização e backups</li>
-        <li>🗑️ <strong>Exclusão</strong> de OS (com confirmação)</li>
+        <li>🔐 <strong>Supervisão</strong> para atualização, busca, exclusão e backups</li>
       </ul>
     </div>
 
@@ -1129,279 +1119,6 @@ function renderCadastrar() {
       renderCadastrar();
     }
   });
-}
-
-/* ================================================================
-   LISTAGEM - COM BOTÃO DE EXCLUIR
-   ================================================================ */
-function renderListar() {
-  const container = document.getElementById("page-listar");
-
-  container.innerHTML = `
-    <div class="card">
-      <h2>📋 Listagem Completa de OS</h2>
-
-      <div class="grid">
-        <div class="field">
-          <label>Status</label>
-          <select id="filtroStatus">
-            <option>Todos</option>
-            ${STATUS_OPCOES.map(x => `<option>${escapeHtml(x)}</option>`).join("")}
-          </select>
-        </div>
-
-        <div class="field">
-          <label>Tipo de Manutenção</label>
-          <select id="filtroTipo">
-            <option>Todos</option>
-            ${TIPOS_MANUTENCAO.map(x => `<option>${escapeHtml(x)}</option>`).join("")}
-          </select>
-        </div>
-      </div>
-
-      <div id="tabelaListagem"></div>
-    </div>
-  `;
-
-  document.getElementById("filtroStatus").addEventListener("change", montarTabelaListagem);
-  document.getElementById("filtroTipo").addEventListener("change", montarTabelaListagem);
-
-  montarTabelaListagem();
-}
-
-function montarTabelaListagem() {
-  const status = document.getElementById("filtroStatus")?.value || "Todos";
-  const tipo = document.getElementById("filtroTipo")?.value || "Todos";
-
-  let lista = [...dados];
-
-  if (status !== "Todos") lista = lista.filter(x => x.status === status);
-  if (tipo !== "Todos") lista = lista.filter(x => x.tipo === tipo);
-
-  lista.sort((a,b) => b.id - a.id);
-
-  document.getElementById("tabelaListagem").innerHTML = tabelaOS(lista);
-}
-
-function tabelaOS(lista) {
-  if (!lista.length) {
-    return `<div class="empty">Nenhuma ordem de serviço encontrada.</div>`;
-  }
-
-  return `
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Descrição</th>
-            <th>Data</th>
-            <th>Hora Abertura</th>
-            <th>Solicitante</th>
-            <th>Local</th>
-            <th>Tipo</th>
-            <th>Status</th>
-            <th>Data Conclusão</th>
-            <th>Hora Conclusão</th>
-            <th>Executante 1</th>
-            <th>Executante 2</th>
-            <th>Urgente</th>
-            <th>Observações</th>
-            <th>Ações</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${lista.map(os => `
-            <tr>
-              <td><strong>${escapeHtml(os.id)}</strong></td>
-              <td>${escapeHtml(os.descricao)}</td>
-              <td>${escapeHtml(os.data)}</td>
-              <td>${escapeHtml(os.hora_abertura)}</td>
-              <td>${escapeHtml(os.solicitante)}</td>
-              <td>${escapeHtml(os.local)}</td>
-              <td>${escapeHtml(os.tipo)}</td>
-              <td>${badgeStatus(os.status)}</td>
-              <td>${escapeHtml(os.data_conclusao)}</td>
-              <td>${escapeHtml(os.hora_conclusao)}</td>
-              <td>${escapeHtml(os.executante1)}</td>
-              <td>${escapeHtml(os.executante2)}</td>
-              <td>${badgeUrgente(os.urgente)}</td>
-              <td>${escapeHtml(os.observacoes)}</td>
-              <td>
-                <button class="btn-danger btn-sm" onclick="excluirOS(${os.id})" title="Excluir OS #${os.id}">
-                  🗑️ Excluir
-                </button>
-              </td>
-            </tr>
-          `).join("")}
-        </tbody>
-      </table>
-    </div>
-  `;
-}
-
-/* ================================================================
-   BUSCA - COM BOTÃO DE EXCLUIR
-   ================================================================ */
-function renderBuscar() {
-  const container = document.getElementById("page-buscar");
-
-  container.innerHTML = `
-    <div class="card">
-      <h2>🔍 Busca Avançada</h2>
-
-      <div class="grid">
-        <div class="field">
-          <label>Critério de busca</label>
-          <select id="criterioBusca">
-            <option value="status">Status</option>
-            <option value="id">ID</option>
-            <option value="solicitante">Solicitante</option>
-            <option value="local">Local</option>
-            <option value="tipo">Tipo</option>
-            <option value="executante1">Executante1</option>
-            <option value="executante2">Executante2</option>
-            <option value="observacoes">Observações</option>
-          </select>
-        </div>
-
-        <div class="field">
-          <label id="labelBusca">Selecione o status</label>
-          <div id="campoBusca"></div>
-        </div>
-      </div>
-
-      <div id="resultadoBusca"></div>
-    </div>
-  `;
-
-  document.getElementById("criterioBusca").addEventListener("change", atualizarCampoBusca);
-  atualizarCampoBusca();
-}
-
-function atualizarCampoBusca() {
-  const criterio = document.getElementById("criterioBusca").value;
-  const campo = document.getElementById("campoBusca");
-  const label = document.getElementById("labelBusca");
-
-  if (criterio === "status") {
-    label.textContent = "Selecione o status";
-    campo.innerHTML = `
-      <select id="valorBusca">
-        ${STATUS_OPCOES.map(x => `<option>${escapeHtml(x)}</option>`).join("")}
-      </select>`;
-  } else if (criterio === "tipo") {
-    label.textContent = "Selecione o tipo";
-    campo.innerHTML = `
-      <select id="valorBusca">
-        ${TIPOS_MANUTENCAO.map(x => `<option>${escapeHtml(x)}</option>`).join("")}
-      </select>`;
-  } else if (criterio === "id") {
-    label.textContent = "Digite o ID da OS";
-    campo.innerHTML = `<input type="number" id="valorBusca" min="1">`;
-  } else {
-    label.textContent = "Digite o texto para busca";
-    campo.innerHTML = `<input type="text" id="valorBusca" placeholder="Digite o ${criterio}">`;
-  }
-
-  document.getElementById("valorBusca").addEventListener("input", executarBusca);
-  executarBusca();
-}
-
-function executarBusca() {
-  const criterio = document.getElementById("criterioBusca")?.value;
-  const valor = document.getElementById("valorBusca")?.value ?? "";
-  const destino = document.getElementById("resultadoBusca");
-
-  if (!destino) return;
-
-  let resultado = [];
-
-  if (criterio === "id") {
-    const id = Number(valor);
-    if (!id) {
-      destino.innerHTML = "";
-      return;
-    }
-    resultado = dados.filter(x => x.id === id);
-  } else {
-    resultado = dados.filter(x => {
-      const campo = String(x[criterio] ?? "");
-      return campo.toLowerCase().includes(String(valor).toLowerCase());
-    });
-  }
-
-  if (!valor) {
-    destino.innerHTML = "";
-    return;
-  }
-
-  destino.innerHTML = `
-    <div class="alert ${resultado.length ? "alert-success" : "alert-warning"}">
-      ${resultado.length
-        ? `Encontradas ${resultado.length} OS:`
-        : "Nenhuma OS encontrada com os critérios informados."}
-    </div>
-    ${resultado.length ? tabelaOSComExclusao(resultado) : ""}
-  `;
-}
-
-// Versão da tabela com botão de exclusão para a busca
-function tabelaOSComExclusao(lista) {
-  if (!lista.length) {
-    return `<div class="empty">Nenhuma ordem de serviço encontrada.</div>`;
-  }
-
-  return `
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Descrição</th>
-            <th>Data</th>
-            <th>Hora Abertura</th>
-            <th>Solicitante</th>
-            <th>Local</th>
-            <th>Tipo</th>
-            <th>Status</th>
-            <th>Data Conclusão</th>
-            <th>Hora Conclusão</th>
-            <th>Executante 1</th>
-            <th>Executante 2</th>
-            <th>Urgente</th>
-            <th>Observações</th>
-            <th>Ações</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${lista.map(os => `
-            <tr>
-              <td><strong>${escapeHtml(os.id)}</strong></td>
-              <td>${escapeHtml(os.descricao)}</td>
-              <td>${escapeHtml(os.data)}</td>
-              <td>${escapeHtml(os.hora_abertura)}</td>
-              <td>${escapeHtml(os.solicitante)}</td>
-              <td>${escapeHtml(os.local)}</td>
-              <td>${escapeHtml(os.tipo)}</td>
-              <td>${badgeStatus(os.status)}</td>
-              <td>${escapeHtml(os.data_conclusao)}</td>
-              <td>${escapeHtml(os.hora_conclusao)}</td>
-              <td>${escapeHtml(os.executante1)}</td>
-              <td>${escapeHtml(os.executante2)}</td>
-              <td>${badgeUrgente(os.urgente)}</td>
-              <td>${escapeHtml(os.observacoes)}</td>
-              <td>
-                <button class="btn-danger btn-sm" onclick="excluirOS(${os.id})" title="Excluir OS #${os.id}">
-                  🗑️ Excluir
-                </button>
-              </td>
-            </tr>
-          `).join("")}
-        </tbody>
-      </table>
-    </div>
-  `;
 }
 
 /* ================================================================
@@ -1610,7 +1327,7 @@ function desenharGraficoStatus() {
 }
 
 /* ================================================================
-   SUPERVISÃO
+   SUPERVISÃO - COM BUSCA E EXCLUSÃO INTEGRADAS
    ================================================================ */
 function renderSupervisao() {
   const container = document.getElementById("page-supervisao");
@@ -1648,12 +1365,14 @@ function renderSupervisao() {
       <div class="alert alert-success">Acesso autorizado à área de supervisão.</div>
 
       <div class="tabs">
-        <button class="tab active" data-super="atualizar">🔄 Atualizar OS</button>
+        <button class="tab active" data-super="buscar">🔍 Buscar OS</button>
+        <button class="tab" data-super="atualizar">🔄 Atualizar OS</button>
         <button class="tab" data-super="backups">💾 Gerenciar Backups</button>
         <button class="tab" data-super="config">⚙️ Configuração Supabase</button>
       </div>
 
-      <div id="superAtualizar"></div>
+      <div id="superBuscar"></div>
+      <div id="superAtualizar" class="hidden"></div>
       <div id="superBackups" class="hidden"></div>
       <div id="superConfig" class="hidden"></div>
     </div>
@@ -1664,20 +1383,189 @@ function renderSupervisao() {
       document.querySelectorAll("#page-supervisao [data-super]").forEach(x => x.classList.remove("active"));
       btn.classList.add("active");
 
+      document.getElementById("superBuscar").classList.toggle("hidden", btn.dataset.super !== "buscar");
       document.getElementById("superAtualizar").classList.toggle("hidden", btn.dataset.super !== "atualizar");
       document.getElementById("superBackups").classList.toggle("hidden", btn.dataset.super !== "backups");
       document.getElementById("superConfig").classList.toggle("hidden", btn.dataset.super !== "config");
 
-      if (btn.dataset.super === "atualizar") renderAtualizar();
+      if (btn.dataset.super === "buscar") renderSuperBuscar();
+      if (btn.dataset.super === "atualizar") renderSuperAtualizar();
       if (btn.dataset.super === "backups") renderBackups();
       if (btn.dataset.super === "config") renderConfigSupabase();
     });
   });
 
-  renderAtualizar();
+  renderSuperBuscar();
 }
 
-function renderAtualizar() {
+/* ================================================================
+   SUPER BUSCAR - Busca e Exclusão dentro da Supervisão
+   ================================================================ */
+function renderSuperBuscar() {
+  const container = document.getElementById("superBuscar");
+
+  container.innerHTML = `
+    <div>
+      <h3>🔍 Busca Avançada de OS</h3>
+      <div class="alert alert-info">Encontre ordens de serviço e exclua-as com segurança.</div>
+
+      <div class="grid">
+        <div class="field">
+          <label>Critério de busca</label>
+          <select id="criterioBuscaSuper">
+            <option value="status">Status</option>
+            <option value="id">ID</option>
+            <option value="solicitante">Solicitante</option>
+            <option value="local">Local</option>
+            <option value="tipo">Tipo</option>
+            <option value="executante1">Executante1</option>
+            <option value="executante2">Executante2</option>
+            <option value="observacoes">Observações</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label id="labelBuscaSuper">Selecione o status</label>
+          <div id="campoBuscaSuper"></div>
+        </div>
+      </div>
+
+      <div id="resultadoBuscaSuper"></div>
+    </div>
+  `;
+
+  document.getElementById("criterioBuscaSuper").addEventListener("change", atualizarCampoBuscaSuper);
+  atualizarCampoBuscaSuper();
+}
+
+function atualizarCampoBuscaSuper() {
+  const criterio = document.getElementById("criterioBuscaSuper").value;
+  const campo = document.getElementById("campoBuscaSuper");
+  const label = document.getElementById("labelBuscaSuper");
+
+  if (criterio === "status") {
+    label.textContent = "Selecione o status";
+    campo.innerHTML = `
+      <select id="valorBuscaSuper">
+        ${STATUS_OPCOES.map(x => `<option>${escapeHtml(x)}</option>`).join("")}
+      </select>`;
+  } else if (criterio === "tipo") {
+    label.textContent = "Selecione o tipo";
+    campo.innerHTML = `
+      <select id="valorBuscaSuper">
+        ${TIPOS_MANUTENCAO.map(x => `<option>${escapeHtml(x)}</option>`).join("")}
+      </select>`;
+  } else if (criterio === "id") {
+    label.textContent = "Digite o ID da OS";
+    campo.innerHTML = `<input type="number" id="valorBuscaSuper" min="1">`;
+  } else {
+    label.textContent = "Digite o texto para busca";
+    campo.innerHTML = `<input type="text" id="valorBuscaSuper" placeholder="Digite o ${criterio}">`;
+  }
+
+  document.getElementById("valorBuscaSuper").addEventListener("input", executarBuscaSuper);
+  executarBuscaSuper();
+}
+
+function executarBuscaSuper() {
+  const criterio = document.getElementById("criterioBuscaSuper")?.value;
+  const valor = document.getElementById("valorBuscaSuper")?.value ?? "";
+  const destino = document.getElementById("resultadoBuscaSuper");
+
+  if (!destino) return;
+
+  let resultado = [];
+
+  if (criterio === "id") {
+    const id = Number(valor);
+    if (!id) {
+      destino.innerHTML = "";
+      return;
+    }
+    resultado = dados.filter(x => x.id === id);
+  } else {
+    resultado = dados.filter(x => {
+      const campo = String(x[criterio] ?? "");
+      return campo.toLowerCase().includes(String(valor).toLowerCase());
+    });
+  }
+
+  if (!valor) {
+    destino.innerHTML = "";
+    return;
+  }
+
+  destino.innerHTML = `
+    <div class="alert ${resultado.length ? "alert-success" : "alert-warning"}">
+      ${resultado.length
+        ? `Encontradas ${resultado.length} OS:`
+        : "Nenhuma OS encontrada com os critérios informados."}
+    </div>
+    ${resultado.length ? tabelaOSComExclusaoSuper(resultado) : ""}
+  `;
+}
+
+function tabelaOSComExclusaoSuper(lista) {
+  if (!lista.length) {
+    return `<div class="empty">Nenhuma ordem de serviço encontrada.</div>`;
+  }
+
+  return `
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Descrição</th>
+            <th>Data</th>
+            <th>Hora Abertura</th>
+            <th>Solicitante</th>
+            <th>Local</th>
+            <th>Tipo</th>
+            <th>Status</th>
+            <th>Data Conclusão</th>
+            <th>Hora Conclusão</th>
+            <th>Executante 1</th>
+            <th>Executante 2</th>
+            <th>Urgente</th>
+            <th>Observações</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${lista.map(os => `
+            <tr>
+              <td><strong>${escapeHtml(os.id)}</strong></td>
+              <td>${escapeHtml(os.descricao)}</td>
+              <td>${escapeHtml(os.data)}</td>
+              <td>${escapeHtml(os.hora_abertura)}</td>
+              <td>${escapeHtml(os.solicitante)}</td>
+              <td>${escapeHtml(os.local)}</td>
+              <td>${escapeHtml(os.tipo)}</td>
+              <td>${badgeStatus(os.status)}</td>
+              <td>${escapeHtml(os.data_conclusao)}</td>
+              <td>${escapeHtml(os.hora_conclusao)}</td>
+              <td>${escapeHtml(os.executante1)}</td>
+              <td>${escapeHtml(os.executante2)}</td>
+              <td>${badgeUrgente(os.urgente)}</td>
+              <td>${escapeHtml(os.observacoes)}</td>
+              <td>
+                <button class="btn-danger btn-sm" onclick="excluirOS(${os.id})" title="Excluir OS #${os.id}">
+                  🗑️ Excluir
+                </button>
+              </td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+/* ================================================================
+   SUPER ATUALIZAR
+   ================================================================ */
+function renderSuperAtualizar() {
   const container = document.getElementById("superAtualizar");
 
   const naoConcluidas = dados
@@ -1685,7 +1573,7 @@ function renderAtualizar() {
     .sort((a,b) => b.id - a.id);
 
   if (!naoConcluidas.length) {
-    container.innerHTML = `<div class="alert alert-warning">Nenhuma OS pendente.</div>`;
+    container.innerHTML = `<div class="alert alert-warning">Nenhuma OS pendente para atualizar.</div>`;
     return;
   }
 
@@ -1694,24 +1582,24 @@ function renderAtualizar() {
 
     <div class="field">
       <label>Selecione a OS</label>
-      <select id="osSelecionada">
+      <select id="osSelecionadaSuper">
         ${naoConcluidas.map(os =>
           `<option value="${os.id}">ID ${os.id} - ${escapeHtml(os.descricao)}</option>`
         ).join("")}
       </select>
     </div>
 
-    <div id="formAtualizacao"></div>
+    <div id="formAtualizacaoSuper"></div>
   `;
 
-  document.getElementById("osSelecionada").addEventListener("change", montarFormularioAtualizacao);
-  montarFormularioAtualizacao();
+  document.getElementById("osSelecionadaSuper").addEventListener("change", montarFormularioAtualizacaoSuper);
+  montarFormularioAtualizacaoSuper();
 }
 
-function montarFormularioAtualizacao() {
-  const id = Number(document.getElementById("osSelecionada").value);
+function montarFormularioAtualizacaoSuper() {
+  const id = Number(document.getElementById("osSelecionadaSuper").value);
   const os = dados.find(x => x.id === id);
-  const container = document.getElementById("formAtualizacao");
+  const container = document.getElementById("formAtualizacaoSuper");
 
   if (!os) return;
 
@@ -1722,12 +1610,12 @@ function montarFormularioAtualizacao() {
       <strong>Local:</strong> ${escapeHtml(os.local)}
     </div>
 
-    <form id="formAtualizacaoOS">
+    <form id="formAtualizacaoOSSuper">
       <div class="grid">
         <div>
           <div class="field">
             <label>Tipo de Serviço</label>
-            <select id="updTipo">
+            <select id="updTipoSuper">
               <option value=""> </option>
               ${TIPOS_MANUTENCAO.map(x =>
                 `<option ${x === os.tipo ? "selected" : ""}>${escapeHtml(x)}</option>`
@@ -1737,7 +1625,7 @@ function montarFormularioAtualizacao() {
 
           <div class="field">
             <label>Status*</label>
-            <select id="updStatus">
+            <select id="updStatusSuper">
               ${STATUS_OPCOES.map(x =>
                 `<option ${x === os.status ? "selected" : ""}>${escapeHtml(x)}</option>`
               ).join("")}
@@ -1746,7 +1634,7 @@ function montarFormularioAtualizacao() {
 
           <div class="field">
             <label>Executante Principal*</label>
-            <select id="updExecutante1">
+            <select id="updExecutante1Super">
               <option value="">Selecione</option>
               ${EXECUTANTES_PREDEFINIDOS.map(x =>
                 `<option ${x === os.executante1 ? "selected" : ""}>${escapeHtml(x)}</option>`
@@ -1758,7 +1646,7 @@ function montarFormularioAtualizacao() {
         <div>
           <div class="field">
             <label>Executante Secundário (opcional)</label>
-            <select id="updExecutante2">
+            <select id="updExecutante2Super">
               <option value=""> </option>
               ${EXECUTANTES_PREDEFINIDOS.map(x =>
                 `<option ${x === os.executante2 ? "selected" : ""}>${escapeHtml(x)}</option>`
@@ -1768,35 +1656,35 @@ function montarFormularioAtualizacao() {
 
           <div class="field">
             <label>Data de conclusão</label>
-            <input value="${escapeHtml(os.data_conclusao)}" disabled id="dataConclusaoPreview">
+            <input value="${escapeHtml(os.data_conclusao)}" disabled id="dataConclusaoPreviewSuper">
           </div>
 
           <div class="field">
             <label>Hora de conclusão</label>
-            <input value="${escapeHtml(os.hora_conclusao)}" disabled id="horaConclusaoPreview">
+            <input value="${escapeHtml(os.hora_conclusao)}" disabled id="horaConclusaoPreviewSuper">
           </div>
         </div>
       </div>
 
       <div class="field">
         <label>Observações</label>
-        <textarea id="updObservacoes">${escapeHtml(os.observacoes)}</textarea>
+        <textarea id="updObservacoesSuper">${escapeHtml(os.observacoes)}</textarea>
       </div>
 
       <button class="btn-primary" type="submit">Atualizar OS</button>
     </form>
   `;
 
-  document.getElementById("updStatus").addEventListener("change", atualizarPreviewConclusao);
+  document.getElementById("updStatusSuper").addEventListener("change", atualizarPreviewConclusaoSuper);
 
-  document.getElementById("formAtualizacaoOS").addEventListener("submit", async e => {
+  document.getElementById("formAtualizacaoOSSuper").addEventListener("submit", async e => {
     e.preventDefault();
 
-    const tipo = document.getElementById("updTipo").value;
-    const status = document.getElementById("updStatus").value;
-    const executante1 = document.getElementById("updExecutante1").value;
-    const executante2 = document.getElementById("updExecutante2").value;
-    const observacoes = document.getElementById("updObservacoes").value.trim();
+    const tipo = document.getElementById("updTipoSuper").value;
+    const status = document.getElementById("updStatusSuper").value;
+    const executante1 = document.getElementById("updExecutante1Super").value;
+    const executante2 = document.getElementById("updExecutante2Super").value;
+    const observacoes = document.getElementById("updObservacoesSuper").value.trim();
 
     if ((status === "Em execução" || status === "Concluído") && !executante1) {
       mostrarToast("Selecione pelo menos um executante principal para este status!", "danger");
@@ -1824,15 +1712,15 @@ function montarFormularioAtualizacao() {
 
     if (ok) {
       mostrarToast("OS atualizada com sucesso!", "success");
-      renderAtualizar();
+      renderSuperAtualizar();
     }
   });
 }
 
-function atualizarPreviewConclusao() {
-  const status = document.getElementById("updStatus").value;
-  const data = document.getElementById("dataConclusaoPreview");
-  const hora = document.getElementById("horaConclusaoPreview");
+function atualizarPreviewConclusaoSuper() {
+  const status = document.getElementById("updStatusSuper").value;
+  const data = document.getElementById("dataConclusaoPreviewSuper");
+  const hora = document.getElementById("horaConclusaoPreviewSuper");
 
   if (status === "Concluído") {
     const agora = agoraBrasil();
@@ -2313,7 +2201,7 @@ async function importarCSVSelecionado() {
       mostrarToast(msg, "success");
     }
 
-    abrirPagina("listar");
+    abrirPagina("supervisao");
 
   } catch (erro) {
     console.error(erro);
