@@ -13,6 +13,9 @@
     1) Crie uma tabela "ordens_servico" no Supabase.
     2) Execute o SQL abaixo no SQL Editor do Supabase:
 
+    -- ATENÇÃO: Use esta estrutura com id BIGSERIAL (auto-incremento)
+    DROP TABLE IF EXISTS public.ordens_servico CASCADE;
+
     create table if not exists public.ordens_servico (
       id bigserial primary key,
       descricao text not null,
@@ -60,12 +63,6 @@
     - As políticas acima deixam o sistema público para manter o comportamento
       da aplicação original. Se quiser segurança por usuários/login, as
       políticas deverão ser restringidas posteriormente.
-
-    APLICAÇÃO:
-    - Abra este arquivo diretamente ou publique no GitHub Pages.
-    - Preencha SUPABASE_URL e SUPABASE_ANON_KEY abaixo.
-    - O banco passa a ser a fonte oficial dos dados.
-    - Backups são mantidos no navegador e também podem ser baixados como JSON.
   -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.9/dist/chart.umd.min.js"></script>
@@ -784,26 +781,29 @@ async function inserirOS(registro) {
   }
 
   try {
-    // Remove o id para usar auto-incremento do banco
+    // NÃO envia o ID - o banco gera automaticamente com bigserial
     const { id, ...registroSemId } = registro;
     
-    const { error } = await supabaseClient
+    const { data, error } = await supabaseClient
       .from(TABLE_NAME)
-      .insert([registroSemId]);
+      .insert([registroSemId])
+      .select();
 
-    if (error) throw error;
+    if (error) {
+      // Verifica se é erro de chave duplicada
+      if (error.message && error.message.includes("duplicate key")) {
+        mostrarToast("Erro: Conflito de ID. O sistema usa auto-incremento, não defina o ID manualmente.", "danger");
+      } else {
+        throw error;
+      }
+      return false;
+    }
 
     await carregarDados();
     return true;
   } catch (erro) {
     console.error("Erro ao inserir:", erro);
-    
-    // Verifica se é erro de chave duplicada
-    if (erro.message && erro.message.includes("duplicate key")) {
-      mostrarToast("Erro: Já existe uma OS com este ID. O sistema usa auto-incremento, não tente definir o ID manualmente.", "danger");
-    } else {
-      mostrarToast("Não foi possível salvar a OS: " + erro.message, "danger");
-    }
+    mostrarToast("Não foi possível salvar a OS: " + erro.message, "danger");
     return false;
   }
 }
@@ -991,6 +991,7 @@ function renderCadastrar() {
   container.innerHTML = `
     <div class="card">
       <h2>📝 Cadastrar Nova Ordem de Serviço</h2>
+      <div class="alert alert-info">O ID será gerado automaticamente pelo banco de dados.</div>
 
       <form id="formCadastro">
         <div class="grid">
@@ -1037,12 +1038,13 @@ function renderCadastrar() {
 
     const agora = agoraBrasil();
 
+    // NÃO inclui o campo 'id' - o banco vai gerar automaticamente
     const novaOS = {
-      descricao,
+      descricao: descricao,
       data: agora.data,
       hora_abertura: agora.hora,
-      solicitante,
-      local,
+      solicitante: solicitante,
+      local: local,
       tipo: "",
       status: "Pendente",
       data_conclusao: "",
@@ -1797,7 +1799,6 @@ async function restaurarDadosNoSupabase(registros) {
     // Insere novamente o conteúdo do backup.
     if (registros.length) {
       const registrosLimpos = registros.map(x => ({
-        id: Number(x.id),
         descricao: x.descricao || "",
         data: x.data || "",
         hora_abertura: x.hora_abertura || "",
@@ -1965,7 +1966,7 @@ function renderConfigSupabase() {
       <table style="min-width:500px">
         <thead><tr><th>Campo Supabase</th><th>Uso</th></tr></thead>
         <tbody>
-          <tr><td>id</td><td>Identificador da OS</td></tr>
+          <tr><td>id</td><td>Identificador da OS (auto-incremento)</td></tr>
           <tr><td>descricao</td><td>Descrição da atividade</td></tr>
           <tr><td>data</td><td>Data de abertura</td></tr>
           <tr><td>hora_abertura</td><td>Hora de abertura</td></tr>
@@ -2010,6 +2011,7 @@ function abrirImportacaoCSV() {
       <div class="modal-card">
         <h3>📤 Importar CSV antigo</h3>
         <p>Selecione o arquivo <strong>ordens_servico.csv</strong> da versão Python.</p>
+        <p><strong>ATENÇÃO:</strong> O ID será preservado do arquivo CSV. IDs duplicados serão ignorados.</p>
         <input type="file" id="arquivoCSV" accept=".csv,text/csv">
         <div class="actions">
           <button class="btn-primary" onclick="importarCSVSelecionado()">Importar</button>
@@ -2185,8 +2187,10 @@ async function importarCSVSelecionado() {
 
   } catch (erro) {
     console.error(erro);
-    document.getElementById("progressoTexto").innerHTML =
-      `<div class="alert alert-danger">${escapeHtml(erro.message)}</div>`;
+    const progresso = document.getElementById("progressoTexto");
+    if (progresso) {
+      progresso.innerHTML = `<div class="alert alert-danger">${escapeHtml(erro.message)}</div>`;
+    }
     mostrarToast("Erro na importação: " + erro.message, "danger");
   }
 }
