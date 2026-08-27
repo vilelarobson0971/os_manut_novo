@@ -2002,7 +2002,7 @@ function renderBackups() {
 }
 
 /* ================================================================
-   IMPORTAÇÃO DE DADOS ANTIGOS
+   IMPORTAÇÃO DE DADOS ANTIGOS - CORRIGIDO
    ================================================================ */
 function abrirImportacaoCSV() {
   const root = document.getElementById("modalRoot");
@@ -2013,6 +2013,7 @@ function abrirImportacaoCSV() {
         <h3>📤 Importar CSV antigo</h3>
         <p>Selecione o arquivo <strong>ordens_servico.csv</strong> da versão Python.</p>
         <p><strong>ATENÇÃO:</strong> O ID será preservado do arquivo CSV. IDs duplicados serão ignorados.</p>
+        <p><strong>Limite:</strong> O sistema importa em lotes de 500 registros para maior estabilidade.</p>
         <input type="file" id="arquivoCSV" accept=".csv,text/csv">
         <div class="actions">
           <button class="btn-primary" onclick="importarCSVSelecionado()">Importar</button>
@@ -2021,6 +2022,7 @@ function abrirImportacaoCSV() {
         <div id="progressoImportacao">
           <div class="progress-bar"><div class="fill" id="progressBarFill"></div></div>
           <div id="progressoTexto">Aguardando arquivo...</div>
+          <div id="logImportacao" style="max-height:200px;overflow-y:auto;font-size:12px;margin-top:10px;background:#f5f5f5;padding:8px;border-radius:5px;"></div>
         </div>
       </div>
     </div>
@@ -2038,6 +2040,22 @@ function atualizarProgresso(percentual, texto) {
   if (textoEl) textoEl.textContent = texto;
 }
 
+function adicionarLog(mensagem, tipo = "info") {
+  const log = document.getElementById("logImportacao");
+  if (!log) return;
+  const cores = {
+    info: "#333",
+    success: "#16803c",
+    warning: "#b7791f",
+    error: "#c62828"
+  };
+  const div = document.createElement("div");
+  div.style.color = cores[tipo] || cores.info;
+  div.textContent = mensagem;
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+}
+
 async function importarCSVSelecionado() {
   const arquivo = document.getElementById("arquivoCSV").files[0];
 
@@ -2047,6 +2065,7 @@ async function importarCSVSelecionado() {
   }
 
   atualizarProgresso(0, "Lendo arquivo...");
+  adicionarLog("📖 Lendo arquivo CSV...", "info");
 
   try {
     const texto = await arquivo.text();
@@ -2055,6 +2074,8 @@ async function importarCSVSelecionado() {
     if (!linhas.length) {
       throw new Error("CSV vazio.");
     }
+
+    adicionarLog(`📄 ${linhas.length} linhas encontradas no arquivo.`, "info");
 
     const cab = linhas[0].map(x => x.trim());
 
@@ -2082,6 +2103,7 @@ async function importarCSVSelecionado() {
     };
 
     const registros = [];
+    let linhasIgnoradas = 0;
 
     for (let i = 1; i < linhas.length; i++) {
       const r = linhas[i];
@@ -2098,24 +2120,50 @@ async function importarCSVSelecionado() {
 
       // Ignora registros sem ID ou descrição
       const idStr = get("id");
-      if (!idStr || !get("descricao")) continue;
+      if (!idStr || !get("descricao")) {
+        linhasIgnoradas++;
+        continue;
+      }
+
+      // Trata valores "nan" como vazio
+      const tratarNan = (valor) => {
+        if (!valor || valor.toLowerCase() === "nan" || valor === "NaN") return "";
+        return valor;
+      };
+
+      // Formata data para garantir consistência
+      const formatarData = (data) => {
+        if (!data || data.toLowerCase() === "nan") return "";
+        // Tenta adicionar ano se estiver faltando
+        const partes = data.split("/");
+        if (partes.length === 2) {
+          // Data sem ano (ex: "19/7")
+          const anoAtual = new Date().getFullYear();
+          return `${partes[0]}/${partes[1]}/${anoAtual}`;
+        }
+        return data;
+      };
 
       registros.push({
         id: Number(idStr),
-        descricao: get("descricao"),
-        data: get("data"),
-        hora_abertura: get("hora"),
-        solicitante: get("solicitante"),
-        local: get("local"),
-        tipo: get("tipo"),
-        status: get("status") || "Pendente",
-        data_conclusao: get("dataConc"),
-        hora_conclusao: get("horaConc"),
-        executante1: exec1,
-        executante2: exec2,
-        urgente: get("urgente") || "Não",
-        observacoes: get("obs")
+        descricao: tratarNan(get("descricao")),
+        data: formatarData(tratarNan(get("data"))),
+        hora_abertura: tratarNan(get("hora")),
+        solicitante: tratarNan(get("solicitante")),
+        local: tratarNan(get("local")),
+        tipo: tratarNan(get("tipo")),
+        status: tratarNan(get("status")) || "Pendente",
+        data_conclusao: formatarData(tratarNan(get("dataConc"))),
+        hora_conclusao: tratarNan(get("horaConc")),
+        executante1: tratarNan(exec1),
+        executante2: tratarNan(exec2),
+        urgente: tratarNan(get("urgente")) || "Não",
+        observacoes: tratarNan(get("obs"))
       });
+    }
+
+    if (linhasIgnoradas > 0) {
+      adicionarLog(`⚠️ ${linhasIgnoradas} linhas ignoradas (sem ID ou descrição).`, "warning");
     }
 
     const validos = registros.filter(x => x.id && x.descricao);
@@ -2124,21 +2172,46 @@ async function importarCSVSelecionado() {
       throw new Error("Nenhum registro válido encontrado.");
     }
 
-    atualizarProgresso(10, `Preparando ${validos.length} registros para importação...`);
+    adicionarLog(`✅ ${validos.length} registros válidos para importação.`, "success");
 
-    // Dividir em lotes de 900 registros (abaixo do limite de 1000)
-    const BATCH_SIZE = 900;
-    const totalBatches = Math.ceil(validos.length / BATCH_SIZE);
+    // Verifica IDs duplicados
+    const ids = validos.map(x => x.id);
+    const duplicados = ids.filter((id, index) => ids.indexOf(id) !== index);
+    if (duplicados.length > 0) {
+      adicionarLog(`⚠️ ${duplicados.length} IDs duplicados encontrados. Serão ignorados.`, "warning");
+    }
+
+    // Remove duplicados (mantém o primeiro)
+    const unicos = [];
+    const idsVistos = new Set();
+    for (const reg of validos) {
+      if (!idsVistos.has(reg.id)) {
+        idsVistos.add(reg.id);
+        unicos.push(reg);
+      }
+    }
+
+    if (unicos.length < validos.length) {
+      adicionarLog(`ℹ️ ${validos.length - unicos.length} registros duplicados removidos.`, "info");
+    }
+
+    atualizarProgresso(10, `Preparando ${unicos.length} registros para importação...`);
+
+    // Dividir em lotes de 500 registros (mais seguro)
+    const BATCH_SIZE = 500;
+    const totalBatches = Math.ceil(unicos.length / BATCH_SIZE);
     let importados = 0;
     let erros = [];
+    let totalProcessados = 0;
 
     for (let batch = 0; batch < totalBatches; batch++) {
       const inicio = batch * BATCH_SIZE;
-      const fim = Math.min(inicio + BATCH_SIZE, validos.length);
-      const lote = validos.slice(inicio, fim);
+      const fim = Math.min(inicio + BATCH_SIZE, unicos.length);
+      const lote = unicos.slice(inicio, fim);
 
       const percentual = 10 + (batch / totalBatches) * 80;
       atualizarProgresso(percentual, `Importando lote ${batch + 1} de ${totalBatches} (${lote.length} registros)...`);
+      adicionarLog(`📤 Importando lote ${batch + 1}/${totalBatches} (${lote.length} registros)...`, "info");
 
       try {
         // Usar upsert com onConflict para evitar duplicatas
@@ -2147,8 +2220,10 @@ async function importarCSVSelecionado() {
           .upsert(lote, { onConflict: "id" });
 
         if (error) {
-          // Se der erro, tenta inserir um por um para identificar qual deu problema
-          console.warn("Erro no lote, tentando individualmente:", error);
+          adicionarLog(`❌ Erro no lote ${batch + 1}: ${error.message}`, "error");
+          
+          // Tenta inserir um por um para identificar qual deu problema
+          let sucessosLote = 0;
           for (const reg of lote) {
             try {
               const { error: singleError } = await supabaseClient
@@ -2157,17 +2232,27 @@ async function importarCSVSelecionado() {
               if (singleError) {
                 erros.push(`ID ${reg.id}: ${singleError.message}`);
               } else {
+                sucessosLote++;
                 importados++;
               }
             } catch (e) {
               erros.push(`ID ${reg.id}: ${e.message}`);
             }
+            totalProcessados++;
+            
+            // Atualiza progresso dentro do lote
+            const subProgresso = percentual + ((totalProcessados / unicos.length) * 10);
+            atualizarProgresso(Math.min(subProgresso, 95), `Processando registro ${totalProcessados} de ${unicos.length}...`);
           }
+          adicionarLog(`✅ ${sucessosLote} registros importados no lote ${batch + 1} (individualmente).`, "success");
         } else {
           importados += lote.length;
+          totalProcessados += lote.length;
+          adicionarLog(`✅ Lote ${batch + 1} importado com sucesso (${lote.length} registros).`, "success");
         }
       } catch (e) {
         erros.push(`Lote ${batch + 1}: ${e.message}`);
+        adicionarLog(`❌ Erro crítico no lote ${batch + 1}: ${e.message}`, "error");
       }
     }
 
@@ -2178,11 +2263,19 @@ async function importarCSVSelecionado() {
 
     let msg = `${importados} OS importadas para o Supabase.`;
     if (erros.length > 0) {
-      msg += `\nErros em ${erros.length} registros: ${erros.slice(0, 5).join("; ")}${erros.length > 5 ? "..." : ""}`;
+      msg += `\nErros em ${erros.length} registros.`;
+      adicionarLog(`⚠️ Total de erros: ${erros.length}`, "warning");
+      // Mostra os primeiros 5 erros
+      erros.slice(0, 10).forEach(e => adicionarLog(`  ❌ ${e}`, "error"));
+      if (erros.length > 10) {
+        adicionarLog(`  ... e mais ${erros.length - 10} erros.`, "info");
+      }
       mostrarToast(msg, "warning");
     } else {
       mostrarToast(msg, "success");
     }
+
+    adicionarLog(`✅ Importação finalizada! ${importados} registros importados.`, "success");
 
     abrirPagina("supervisao");
 
@@ -2192,6 +2285,7 @@ async function importarCSVSelecionado() {
     if (progresso) {
       progresso.innerHTML = `<div class="alert alert-danger">${escapeHtml(erro.message)}</div>`;
     }
+    adicionarLog(`❌ Erro na importação: ${erro.message}`, "error");
     mostrarToast("Erro na importação: " + erro.message, "danger");
   }
 }
