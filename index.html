@@ -719,7 +719,7 @@ async function testarConexao() {
 }
 
 /* ================================================================
-   DADOS
+   DADOS - COM PAGINAÇÃO PARA BUSCAR TODOS OS REGISTROS
    ================================================================ */
 async function carregarDados() {
   if (!supabaseClient) {
@@ -730,15 +730,45 @@ async function carregarDados() {
   mostrarLoading("Carregando dados...");
 
   try {
-    const { data, error } = await supabaseClient
-      .from(TABLE_NAME)
-      .select("*")
-      .order("id", { ascending: true });
+    // Busca todos os registros usando paginação
+    let allData = [];
+    let page = 0;
+    const pageSize = 1000;
+    let hasMore = true;
 
-    if (error) throw error;
+    while (hasMore) {
+      const from = page * pageSize;
+      const to = from + pageSize - 1;
 
-    dados = (data || []).map(normalizarRegistro);
+      const { data, error } = await supabaseClient
+        .from(TABLE_NAME)
+        .select("*")
+        .order("id", { ascending: true })
+        .range(from, to);
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        allData = allData.concat(data);
+        page++;
+        // Se o número de registros retornados for menor que pageSize, é a última página
+        if (data.length < pageSize) {
+          hasMore = false;
+        }
+      } else {
+        hasMore = false;
+      }
+    }
+
+    dados = allData.map(normalizarRegistro);
     atualizarStatusConexao(true);
+    
+    // Atualiza a interface se estiver visível
+    const pageAtual = document.querySelector(".page-section:not(.hidden)")?.id;
+    if (pageAtual === "page-inicio") renderInicio();
+    if (pageAtual === "page-supervisao") renderSupervisao();
+    if (pageAtual === "page-dashboard") renderDashboard();
+
   } catch (erro) {
     console.error("Erro ao carregar dados:", erro);
     dados = [];
