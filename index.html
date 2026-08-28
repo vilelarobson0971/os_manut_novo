@@ -1010,7 +1010,7 @@ function carregarLogo() {
 }
 
 /* ================================================================
-   PÁGINA INICIAL
+   PÁGINA INICIAL - CORRIGIDA
    ================================================================ */
 function renderInicio() {
   const container = document.getElementById("page-inicio");
@@ -1045,6 +1045,13 @@ function renderInicio() {
       ${notificacoes}
     </div>
 
+    <div class="stat-grid">
+      <div class="stat"><span class="muted">Total de OS</span><strong>${dados.length}</strong></div>
+      <div class="stat"><span class="muted">Pendentes</span><strong>${dados.filter(x => x.status === "Pendente").length}</strong></div>
+      <div class="stat"><span class="muted">Em execução</span><strong>${dados.filter(x => x.status === "Em execução").length}</strong></div>
+      <div class="stat"><span class="muted">Concluídas</span><strong>${dados.filter(x => x.status === "Concluído").length}</strong></div>
+    </div>
+
     <div class="card">
       <h2>Bem-vindo ao Sistema de Gestão de Ordens de Serviço</h2>
       <strong>Funcionalidades disponíveis:</strong>
@@ -1054,18 +1061,6 @@ function renderInicio() {
         <li>📊 <strong>Dashboard</strong> com análises gráficas em pizza</li>
         <li>🔐 <strong>Supervisão</strong> para atualização, busca, exclusão e backups</li>
       </ul>
-    </div>
-
-    <div class="stat-grid">
-      <div class="stat"><span class="muted">Total de OS</span><strong>${dados.length}</strong></div>
-      <div class="stat"><span class="muted">Pendentes</span><strong>${dados.filter(x => x.status === "Pendente").length}</strong></div>
-      <div class="stat"><span class="muted">Em execução</span><strong>${dados.filter(x => x.status === "Em execução").length}</strong></div>
-      <div class="stat"><span class="muted">Concluídas</span><strong>${dados.filter(x => x.status === "Concluído").length}</strong></div>
-    </div>
-
-    <div class="card">
-      <h3>Banco de dados</h3>
-      <div class="muted">Os dados desta versão são armazenados diretamente no Supabase. O GitHub hospeda apenas o código da aplicação.</div>
     </div>
   `;
 }
