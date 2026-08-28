@@ -1152,7 +1152,7 @@ function renderCadastrar() {
 }
 
 /* ================================================================
-   DASHBOARD - TODOS OS GRÁFICOS EM PIZZA (DOUGHNUT)
+   DASHBOARD - CORRIGIDO
    ================================================================ */
 function renderDashboard() {
   const container = document.getElementById("page-dashboard");
@@ -1311,7 +1311,7 @@ function parseDataBR(valor) {
   return data;
 }
 
-// Gráfico de Executantes - Doughnut (pizza)
+// Gráfico de Executantes - CORRIGIDO: Ignora "nan" e valores vazios
 function desenharGraficoExecutantes() {
   if (!window.Chart) return;
 
@@ -1328,8 +1328,13 @@ function desenharGraficoExecutantes() {
 
   const nomes = [];
   lista.forEach(x => {
-    if (x.executante1) nomes.push(x.executante1);
-    if (x.executante2) nomes.push(x.executante2);
+    // Ignora "nan" e valores vazios
+    if (x.executante1 && x.executante1.toLowerCase() !== "nan" && x.executante1.trim() !== "") {
+      nomes.push(x.executante1);
+    }
+    if (x.executante2 && x.executante2.toLowerCase() !== "nan" && x.executante2.trim() !== "") {
+      nomes.push(x.executante2);
+    }
   });
 
   const mapa = {};
@@ -1339,12 +1344,44 @@ function desenharGraficoExecutantes() {
 
   if (chartExecutantes) chartExecutantes.destroy();
 
+  // Se não houver dados, mostra mensagem
+  if (!labels.length) {
+    chartExecutantes = new Chart(document.getElementById("chartExecutantesCanvas"), {
+      type: "doughnut",
+      data: { 
+        labels: ["Sem dados"], 
+        datasets: [{ 
+          data: [1],
+          backgroundColor: ['#e0e0e0']
+        }] 
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'right' },
+          tooltip: {
+            callbacks: {
+              label: function() {
+                return 'Nenhum executante encontrado';
+              }
+            }
+          }
+        }
+      }
+    });
+    if (!nomes.length) {
+      mostrarToast("Nenhuma OS concluída encontrada para o período selecionado.", "info");
+    }
+    return;
+  }
+
   chartExecutantes = new Chart(document.getElementById("chartExecutantesCanvas"), {
     type: "doughnut",
     data: { 
-      labels: labels.length ? labels : ["Sem dados"], 
+      labels: labels, 
       datasets: [{ 
-        data: labels.length ? values : [1],
+        data: values,
         backgroundColor: [
           '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40',
           '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'
@@ -1370,13 +1407,9 @@ function desenharGraficoExecutantes() {
       }
     }
   });
-
-  if (!nomes.length) {
-    mostrarToast("Nenhuma OS concluída encontrada para o período selecionado.", "info");
-  }
 }
 
-// Gráfico de Status - Doughnut (pizza)
+// Gráfico de Status - CORRIGIDO: Mostra todos os status mesmo com diferenças grandes
 function desenharGraficoStatus() {
   if (!window.Chart) return;
 
@@ -1386,36 +1419,131 @@ function desenharGraficoStatus() {
 
   if (chartStatus) chartStatus.destroy();
 
-  chartStatus = new Chart(document.getElementById("chartStatusCanvas"), {
-    type: "doughnut",
-    data: { 
-      labels: labels.length ? labels : ["Sem dados"], 
-      datasets: [{ 
-        data: labels.length ? values : [1],
-        backgroundColor: [
-          '#FFCE56', '#36A2EB', '#4BC0C0', '#66BB6A'
-        ]
-      }] 
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { position: 'right' },
-        tooltip: {
-          callbacks: {
-            label: function(context) {
-              let label = context.label || '';
-              let value = context.parsed || 0;
-              let total = context.dataset.data.reduce((a, b) => a + b, 0);
-              let percentage = total > 0 ? Math.round((value / total) * 100) : 0;
-              return label + ': ' + value + ' (' + percentage + '%)';
+  // Se não houver dados, mostra mensagem
+  if (!labels.length) {
+    chartStatus = new Chart(document.getElementById("chartStatusCanvas"), {
+      type: "bar",
+      data: { 
+        labels: ["Sem dados"], 
+        datasets: [{ 
+          data: [1],
+          backgroundColor: ['#e0e0e0']
+        }] 
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function() {
+                return 'Nenhum status encontrado';
+              }
+            }
+          }
+        },
+        scales: { 
+          y: { 
+            beginAtZero: true, 
+            ticks: { precision: 0 } 
+          } 
+        }
+      }
+    });
+    return;
+  }
+
+  // Cores para cada status
+  const coresStatus = {
+    "Pendente": '#FFCE56',
+    "Pausado": '#36A2EB',
+    "Em execução": '#4BC0C0',
+    "Concluído": '#66BB6A'
+  };
+
+  // Verifica se há valores muito pequenos (menos de 1% do total)
+  const total = values.reduce((a, b) => a + b, 0);
+  const temValorPequeno = values.some(v => (v / total) < 0.02 && v > 0);
+
+  // Escolhe o tipo de gráfico baseado nos dados
+  const tipoGrafico = temValorPequeno && labels.length > 2 ? 'bar' : 'doughnut';
+
+  // Se tem valores pequenos, usa barra com porcentagem nas barras
+  if (tipoGrafico === 'bar') {
+    chartStatus = new Chart(document.getElementById("chartStatusCanvas"), {
+      type: "bar",
+      data: {
+        labels: labels,
+        datasets: [{
+          label: "Quantidade de OS",
+          data: values,
+          backgroundColor: labels.map(l => coresStatus[l] || '#999'),
+          borderColor: labels.map(l => coresStatus[l] || '#999'),
+          borderWidth: 1
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                let value = context.parsed.y || 0;
+                let total = context.dataset.data.reduce((a, b) => a + b, 0);
+                let percentage = total > 0 ? Math.round((value / total) * 100) : 0;
+                return value + ' OS (' + percentage + '%)';
+              }
+            }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: { 
+              precision: 0,
+              callback: function(value) {
+                return value;
+              }
             }
           }
         }
       }
-    }
-  });
+    });
+  } else {
+    // Usa pizza (doughnut) quando os valores são mais equilibrados
+    chartStatus = new Chart(document.getElementById("chartStatusCanvas"), {
+      type: "doughnut",
+      data: {
+        labels: labels,
+        datasets: [{
+          data: values,
+          backgroundColor: labels.map(l => coresStatus[l] || '#999'),
+          borderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'right' },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                let label = context.label || '';
+                let value = context.parsed || 0;
+                let total = context.dataset.data.reduce((a, b) => a + b, 0);
+                let percentage = total > 0 ? Math.round((value / total) * 100) : 0;
+                return label + ': ' + value + ' (' + percentage + '%)';
+              }
+            }
+          }
+        }
+      }
+    });
+  }
 }
 
 /* ================================================================
