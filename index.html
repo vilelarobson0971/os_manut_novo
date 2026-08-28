@@ -805,6 +805,9 @@ function atualizarStatusConexao(ok) {
     : '<span class="dot error"></span> Erro no Supabase';
 }
 
+/* ================================================================
+   INSERIR OS - CORRIGIDO: GARANTE QUE NÃO ENVIA ID
+   ================================================================ */
 async function inserirOS(registro) {
   if (!supabaseClient) {
     mostrarToast("Configure o Supabase antes de salvar.", "danger");
@@ -812,15 +815,24 @@ async function inserirOS(registro) {
   }
 
   try {
-    // NÃO envia o ID - o banco gera automaticamente com bigserial
+    // Remove o campo id completamente - o banco vai gerar automaticamente
     const { id, ...registroSemId } = registro;
+    
+    // Cria um objeto limpo sem nenhum campo id
+    const registroLimpo = {};
+    for (const [key, value] of Object.entries(registroSemId)) {
+      if (key !== 'id' && key !== 'ID') {
+        registroLimpo[key] = value;
+      }
+    }
     
     const { data, error } = await supabaseClient
       .from(TABLE_NAME)
-      .insert([registroSemId])
+      .insert([registroLimpo])
       .select();
 
     if (error) {
+      console.error("Erro detalhado:", error);
       // Verifica se é erro de chave duplicada
       if (error.message && error.message.includes("duplicate key")) {
         mostrarToast("Erro: Conflito de ID. O sistema usa auto-incremento, não defina o ID manualmente.", "danger");
@@ -1152,7 +1164,7 @@ function renderCadastrar() {
 }
 
 /* ================================================================
-   DASHBOARD - CORRIGIDO
+   DASHBOARD - TODOS OS GRÁFICOS EM PIZZA (DOUGHNUT)
    ================================================================ */
 function renderDashboard() {
   const container = document.getElementById("page-dashboard");
@@ -2030,23 +2042,26 @@ async function restaurarDadosNoSupabase(registros) {
 
     if (deleteError) throw deleteError;
 
-    // Insere novamente o conteúdo do backup.
+    // Insere novamente o conteúdo do backup - sem enviar o ID
     if (registros.length) {
-      const registrosLimpos = registros.map(x => ({
-        descricao: x.descricao || "",
-        data: x.data || "",
-        hora_abertura: x.hora_abertura || "",
-        solicitante: x.solicitante || "",
-        local: x.local || "",
-        tipo: x.tipo || "",
-        status: x.status || "Pendente",
-        data_conclusao: x.data_conclusao || "",
-        hora_conclusao: x.hora_conclusao || "",
-        executante1: x.executante1 || "",
-        executante2: x.executante2 || "",
-        urgente: x.urgente || "Não",
-        observacoes: x.observacoes || ""
-      }));
+      const registrosLimpos = registros.map(x => {
+        const { id, ...resto } = x;
+        return {
+          descricao: resto.descricao || "",
+          data: resto.data || "",
+          hora_abertura: resto.hora_abertura || "",
+          solicitante: resto.solicitante || "",
+          local: resto.local || "",
+          tipo: resto.tipo || "",
+          status: resto.status || "Pendente",
+          data_conclusao: resto.data_conclusao || "",
+          hora_conclusao: resto.hora_conclusao || "",
+          executante1: resto.executante1 || "",
+          executante2: resto.executante2 || "",
+          urgente: resto.urgente || "Não",
+          observacoes: resto.observacoes || ""
+        };
+      });
 
       const { error: insertError } = await supabaseClient
         .from(TABLE_NAME)
