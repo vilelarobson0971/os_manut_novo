@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Gestão de Ordens de Serviço</title>
+  <title>Gestão da Manutenção King Joe</title>
 
   <!--
     ================================================================
-    GESTÃO DE ORDENS DE SERVIÇO - VERSÃO HTML + SUPABASE
+    GESTÃO DA MANUTENÇÃO KING JOE - VERSÃO HTML + SUPABASE
     Substitui a aplicação Streamlit/Python.
 
     1) Crie uma tabela "ordens_servico" no Supabase.
@@ -512,6 +512,34 @@
       font-size: 12px;
     }
 
+    .ultimas-os {
+      margin-top: 15px;
+      border-top: 1px solid var(--border);
+      padding-top: 15px;
+    }
+
+    .ultimas-os .os-item {
+      padding: 8px 12px;
+      border-bottom: 1px solid #f0f0f0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .ultimas-os .os-item:last-child {
+      border-bottom: none;
+    }
+
+    .ultimas-os .os-item .os-id {
+      font-weight: 700;
+      color: var(--primary);
+    }
+
+    .ultimas-os .os-item .os-desc {
+      flex: 1;
+      margin: 0 10px;
+    }
+
     @media (max-width: 900px) {
       .sidebar {
         transform: translateX(-100%);
@@ -548,14 +576,13 @@
         <small>KING & JOE</small>
       </div>
 
-      <button class="menu-btn active" data-page="inicio">🏠 Página Inicial</button>
-      <button class="menu-btn" data-page="cadastrar">📝 Cadastrar OS</button>
+      <button class="menu-btn active" data-page="cadastrar">📝 Cadastrar OS</button>
       <button class="menu-btn" data-page="dashboard">📊 Dashboard</button>
       <button class="menu-btn" data-page="supervisao">🔐 Supervisão</button>
 
       <div class="sidebar-footer">
         <strong>Sistema de Gestão de Ordens de Serviço</strong><br>
-        Versão 3.0 HTML<br>
+        Versão 3.1 HTML<br>
         Desenvolvido por Robson Vilela
       </div>
     </aside>
@@ -565,7 +592,7 @@
         <div class="header">
           <img id="logoImg" class="logo hidden" alt="Logo">
           <div>
-            <h1>GESTÃO DE ORDENS DE SERVIÇO</h1>
+            <h1>GESTÃO DA MANUTENÇÃO KING JOE</h1>
           </div>
           <div class="connection" id="connectionStatus">
             <span class="dot"></span> Conectando...
@@ -575,8 +602,7 @@
         <div class="subtitle">KING & JOE</div>
         <hr>
 
-        <section id="page-inicio" class="page-section"></section>
-        <section id="page-cadastrar" class="page-section hidden"></section>
+        <section id="page-cadastrar" class="page-section"></section>
         <section id="page-dashboard" class="page-section hidden"></section>
         <section id="page-supervisao" class="page-section hidden"></section>
       </div>
@@ -632,7 +658,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   carregarLogo();
   inicializarSupabase();
   await carregarDados();
-  renderInicio();
+  renderCadastrar();
 
   // Mantém o comportamento original de recarregar a aplicação periodicamente.
   setTimeout(() => {
@@ -658,7 +684,6 @@ function abrirPagina(page) {
     btn.classList.toggle("active", btn.dataset.page === page);
   });
 
-  if (page === "inicio") renderInicio();
   if (page === "cadastrar") renderCadastrar();
   if (page === "dashboard") renderDashboard();
   if (page === "supervisao") renderSupervisao();
@@ -765,7 +790,7 @@ async function carregarDados() {
     
     // Atualiza a interface se estiver visível
     const pageAtual = document.querySelector(".page-section:not(.hidden)")?.id;
-    if (pageAtual === "page-inicio") renderInicio();
+    if (pageAtual === "page-cadastrar") renderCadastrar();
     if (pageAtual === "page-supervisao") renderSupervisao();
     if (pageAtual === "page-dashboard") renderDashboard();
 
@@ -921,6 +946,9 @@ async function excluirOS(id) {
     if (pageAtual === "page-supervisao") {
       renderSupervisao();
     }
+    if (pageAtual === "page-cadastrar") {
+      renderCadastrar();
+    }
     
     return true;
   } catch (erro) {
@@ -1010,81 +1038,43 @@ function carregarLogo() {
 }
 
 /* ================================================================
-   PÁGINA INICIAL - CORRIGIDA
-   ================================================================ */
-function renderInicio() {
-  const container = document.getElementById("page-inicio");
-
-  const pendentes = dados.filter(x => x.status === "Pendente");
-  const ultimas = [...pendentes].sort((a,b) => b.id - a.id).slice(0, 3);
-
-  let notificacoes = "";
-  if (notificacoesLimpas) {
-    notificacoes = `
-      <div class="alert alert-info">
-        Notificações limpas.
-        <button class="btn-secondary" onclick="mostrarNotificacoes()" style="float:right;padding:5px 9px">
-          Mostrar Notificações
-        </button>
-      </div>`;
-  } else if (ultimas.length) {
-    notificacoes = `
-      <div class="actions">
-        <button class="btn-secondary" onclick="limparNotificacoes()">🗑️ Limpar Notificações</button>
-      </div>
-      <div class="notifications">
-        ${ultimas.map(os => os.urgente === "Sim"
-          ? `<div class="alert alert-danger">🚨 <strong>ORDEM DE SERVIÇO URGENTE:</strong> ID ${escapeHtml(os.id)} - ${escapeHtml(os.descricao)}</div>`
-          : `<div class="alert alert-warning">⚠️ <strong>NOVA ORDEM DE SERVIÇO ABERTA:</strong> ID ${escapeHtml(os.id)} - ${escapeHtml(os.descricao)}</div>`
-        ).join("")}
-      </div>`;
-  }
-
-  container.innerHTML = `
-    <div class="card">
-      ${notificacoes}
-    </div>
-
-    <div class="stat-grid">
-      <div class="stat"><span class="muted">Total de OS</span><strong>${dados.length}</strong></div>
-      <div class="stat"><span class="muted">Pendentes</span><strong>${dados.filter(x => x.status === "Pendente").length}</strong></div>
-      <div class="stat"><span class="muted">Em execução</span><strong>${dados.filter(x => x.status === "Em execução").length}</strong></div>
-      <div class="stat"><span class="muted">Concluídas</span><strong>${dados.filter(x => x.status === "Concluído").length}</strong></div>
-    </div>
-
-    <div class="card">
-      <h2>Bem-vindo ao Sistema de Gestão de Ordens de Serviço</h2>
-      <strong>Funcionalidades disponíveis:</strong>
-      <ul>
-        <li>📝 <strong>Cadastro</strong> de novas ordens de serviço</li>
-        <li>🔍 <strong>Busca avançada</strong> e exclusão de OS (na área de Supervisão)</li>
-        <li>📊 <strong>Dashboard</strong> com análises gráficas em pizza</li>
-        <li>🔐 <strong>Supervisão</strong> para atualização, busca, exclusão e backups</li>
-      </ul>
-    </div>
-  `;
-}
-
-function limparNotificacoes() {
-  notificacoesLimpas = true;
-  renderInicio();
-}
-
-function mostrarNotificacoes() {
-  notificacoesLimpas = false;
-  renderInicio();
-}
-
-/* ================================================================
-   CADASTRO
+   CADASTRO - PÁGINA PRINCIPAL
    ================================================================ */
 function renderCadastrar() {
   const container = document.getElementById("page-cadastrar");
 
+  // Busca as 5 últimas OS não concluídas
+  const naoConcluidas = dados
+    .filter(x => x.status !== "Concluído")
+    .sort((a, b) => b.id - a.id)
+    .slice(0, 5);
+
+  let ultimasOSHtml = '';
+  if (naoConcluidas.length > 0) {
+    ultimasOSHtml = `
+      <div class="ultimas-os">
+        <h4>📋 Últimas OS em aberto</h4>
+        ${naoConcluidas.map(os => `
+          <div class="os-item">
+            <span class="os-id">#${os.id}</span>
+            <span class="os-desc">${escapeHtml(os.descricao)}</span>
+            <span class="os-status">${badgeStatus(os.status)}</span>
+          </div>
+        `).join("")}
+      </div>
+    `;
+  } else {
+    ultimasOSHtml = `
+      <div class="ultimas-os">
+        <h4>📋 Últimas OS em aberto</h4>
+        <div class="empty" style="padding: 15px;">Nenhuma OS em aberto no momento.</div>
+      </div>
+    `;
+  }
+
   container.innerHTML = `
     <div class="card">
       <h2>📝 Cadastrar Nova Ordem de Serviço</h2>
-      <div class="alert alert-info">O ID será gerado automaticamente pelo banco de dados.</div>
 
       <form id="formCadastro">
         <div class="grid">
@@ -1113,6 +1103,8 @@ function renderCadastrar() {
 
         <button class="btn-primary" type="submit">Cadastrar OS</button>
       </form>
+
+      ${ultimasOSHtml}
     </div>
   `;
 
@@ -1131,7 +1123,6 @@ function renderCadastrar() {
 
     const agora = agoraBrasil();
 
-    // NÃO inclui o campo 'id' - o banco vai gerar automaticamente
     const novaOS = {
       descricao: descricao,
       data: agora.data,
