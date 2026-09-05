@@ -3,2505 +3,1894 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Gestão da Manutenção</title>
+  <title>Gestão de Manutenção King &amp; Joe</title>
+  <meta name="description" content="Sistema Profissional de Gestão de Ordens de Serviço (OS) com integração Supabase em tempo real.">
+  
+  <!-- Google Fonts: Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-  <!--
-    ================================================================
-    GESTÃO DA MANUTENÇÃO  - VERSÃO HTML + SUPABASE
-    Substitui a aplicação Streamlit/Python.
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              DEFAULT: '#dc2626',
+              dark: '#991b1b',
+              light: '#fef2f2',
+            }
+          }
+        }
+      }
+    }
+  </script>
 
-    1) Crie uma tabela "ordens_servico" no Supabase.
-    2) Execute o SQL abaixo no SQL Editor do Supabase:
-
-    -- ATENÇÃO: Use esta estrutura com id BIGSERIAL (auto-incremento)
-    DROP TABLE IF EXISTS public.ordens_servico CASCADE;
-
-    create table if not exists public.ordens_servico (
-      id bigserial primary key,
-      descricao text not null,
-      data text,
-      hora_abertura text,
-      solicitante text not null,
-      local text not null,
-      tipo text default '',
-      status text default 'Pendente',
-      data_conclusao text default '',
-      hora_conclusao text default '',
-      executante1 text default '',
-      executante2 text default '',
-      urgente text default 'Não',
-      observacoes text default '',
-      created_at timestamptz default now()
-    );
-
-    alter table public.ordens_servico enable row level security;
-
-    create policy "OS - leitura publica"
-      on public.ordens_servico for select
-      to anon
-      using (true);
-
-    create policy "OS - insercao publica"
-      on public.ordens_servico for insert
-      to anon
-      with check (true);
-
-    create policy "OS - atualizacao publica"
-      on public.ordens_servico for update
-      to anon
-      using (true)
-      with check (true);
-
-    create policy "OS - exclusao publica"
-      on public.ordens_servico for delete
-      to anon
-      using (true);
-
-    ATENÇÃO:
-    - No HTML use somente a URL do projeto e a chave "anon/public".
-    - NUNCA coloque a service_role key neste arquivo.
-    - As políticas acima deixam o sistema público para manter o comportamento
-      da aplicação original. Se quiser segurança por usuários/login, as
-      políticas deverão ser restringidas posteriormente.
-  -->
+  <!-- External Libraries: Supabase JS, Chart.js, Lucide Icons -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.9/dist/chart.umd.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
 
   <style>
-    :root {
-      --primary: #d71920;
-      --primary-dark: #a80f15;
-      --secondary: #222;
-      --bg: #f4f6f8;
-      --card: #fff;
-      --border: #dfe3e8;
-      --text: #222;
-      --muted: #6b7280;
-      --success: #16803c;
-      --warning: #b7791f;
-      --danger: #c62828;
-      --sidebar: #171717;
-    }
-
-    * { box-sizing: border-box; }
-
     body {
-      margin: 0;
-      font-family: Arial, Helvetica, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-    }
-
-    button, input, select, textarea { font: inherit; }
-
-    .layout {
-      display: flex;
-      min-height: 100vh;
-    }
-
-    .sidebar {
-      width: 255px;
-      background: var(--sidebar);
-      color: #fff;
-      padding: 18px 14px;
-      position: fixed;
-      left: 0;
-      top: 0;
-      bottom: 0;
-      overflow-y: auto;
-      z-index: 20;
-    }
-
-    .brand {
-      font-size: 20px;
-      font-weight: 700;
-      padding: 8px 10px 18px;
-      border-bottom: 1px solid #3a3a3a;
-      margin-bottom: 15px;
-    }
-
-    .brand small {
-      display: block;
-      font-size: 11px;
-      color: #bbb;
-      margin-top: 6px;
-      font-weight: normal;
-    }
-
-    .menu-btn {
-      width: 100%;
-      text-align: left;
-      border: 0;
-      background: transparent;
-      color: #eee;
-      padding: 12px 11px;
-      border-radius: 7px;
-      cursor: pointer;
-      margin-bottom: 4px;
-    }
-
-    .menu-btn:hover, .menu-btn.active {
-      background: #333;
-    }
-
-    .sidebar-footer {
-      margin-top: 25px;
-      padding: 12px 10px;
-      border-top: 1px solid #3a3a3a;
-      color: #aaa;
-      font-size: 12px;
-      line-height: 1.5;
-    }
-
-    .main {
-      margin-left: 255px;
-      width: calc(100% - 255px);
-      padding: 22px;
-    }
-
-    .page {
-      max-width: 1500px;
-      margin: auto;
-    }
-
-    .header {
-      display: flex;
-      align-items: center;
-      gap: 15px;
-      margin-bottom: 4px;
-    }
-
-    .logo {
-      width: 58px;
-      height: 58px;
-      object-fit: contain;
-      border-radius: 8px;
-      background: #fff;
-      border: 1px solid var(--border);
-    }
-
-    h1 { font-size: 2rem; margin: 0; }
-    h2 { margin-top: 0; }
-    h3 { margin-top: 0; }
-
-    .subtitle {
-      text-align: center;
-      font-size: 1.1rem;
-      margin: 4px 0 20px;
-      font-weight: 600;
-    }
-
-    hr {
-      border: 0;
-      border-top: 1px solid var(--border);
-      margin: 18px 0;
-    }
-
-    .card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 18px;
-      margin-bottom: 18px;
-      box-shadow: 0 2px 8px rgba(0,0,0,.04);
-    }
-
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 15px;
-    }
-
-    .grid-3 {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 15px;
-    }
-
-    label {
-      display: block;
-      font-weight: 600;
-      margin-bottom: 6px;
-      font-size: 14px;
-    }
-
-    input, select, textarea {
-      width: 100%;
-      border: 1px solid #cfd5dc;
-      border-radius: 7px;
-      padding: 10px 11px;
-      background: #fff;
-      color: #222;
-      outline: none;
-    }
-
-    input:focus, select:focus, textarea:focus {
-      border-color: var(--primary);
-      box-shadow: 0 0 0 2px rgba(215,25,32,.08);
-    }
-
-    textarea {
-      min-height: 105px;
-      resize: vertical;
-    }
-
-    .field { margin-bottom: 14px; }
-
-    .checkbox-line {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin: 13px 0;
-    }
-
-    .checkbox-line input {
-      width: auto;
-    }
-
-    button {
-      border: 0;
-      border-radius: 7px;
-      padding: 10px 15px;
-      cursor: pointer;
-      font-weight: 600;
-    }
-
-    .btn-primary {
-      background: var(--primary);
-      color: #fff;
-    }
-
-    .btn-primary:hover { background: var(--primary-dark); }
-
-    .btn-secondary {
-      background: #e9ecef;
-      color: #222;
-    }
-
-    .btn-success {
-      background: var(--success);
-      color: #fff;
-    }
-
-    .btn-danger {
-      background: var(--danger);
-      color: #fff;
-    }
-
-    .btn-danger:hover { background: #b71c1c; }
-
-    .btn-warning {
-      background: var(--warning);
-      color: #fff;
-    }
-
-    .actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-top: 12px;
-    }
-
-    .alert {
-      border-radius: 8px;
-      padding: 11px 14px;
-      margin: 9px 0;
-      border: 1px solid transparent;
-    }
-
-    .alert-warning {
-      background: #fff8db;
-      border-color: #f0d36b;
-    }
-
-    .alert-danger {
-      background: #ffe7e7;
-      border-color: #e9a3a3;
-    }
-
-    .alert-success {
-      background: #e4f7eb;
-      border-color: #a7d9b7;
-    }
-
-    .alert-info {
-      background: #e6f2ff;
-      border-color: #a9ccef;
-    }
-
-    .table-wrap {
-      overflow-x: auto;
-      background: #fff;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      min-width: 1200px;
-    }
-
-    th, td {
-      padding: 9px 10px;
-      border-bottom: 1px solid #e8ebef;
-      text-align: left;
-      vertical-align: top;
-      font-size: 13px;
-    }
-
-    th {
-      background: #f2f4f6;
-      position: sticky;
-      top: 0;
-      z-index: 2;
-    }
-
-    tr:hover td { background: #fafafa; }
-
-    .badge {
-      display: inline-block;
-      padding: 4px 8px;
-      border-radius: 999px;
-      font-size: 11px;
-      font-weight: 700;
-      white-space: nowrap;
-    }
-
-    .badge-pendente { background: #fff0b3; color: #765700; }
-    .badge-pausado { background: #e5e7eb; color: #374151; }
-    .badge-execucao { background: #dbeafe; color: #1e40af; }
-    .badge-concluido { background: #dcfce7; color: #166534; }
-    .badge-urgente { background: #fee2e2; color: #991b1b; }
-
-    .notifications {
-      margin-top: 12px;
-    }
-
-    .stat-grid {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0,1fr));
-      gap: 12px;
-      margin-bottom: 18px;
-    }
-
-    .stat {
-      background: #fff;
-      border: 1px solid var(--border);
-      border-radius: 9px;
-      padding: 15px;
-    }
-
-    .stat strong {
-      display: block;
-      font-size: 26px;
-      margin-top: 5px;
-    }
-
-    .muted { color: var(--muted); }
-
-    .charts {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0,1fr));
-      gap: 18px;
-    }
-
-    .chart-box {
-      height: 360px;
-      position: relative;
-    }
-
-    .tabs {
-      display: flex;
-      gap: 5px;
-      margin-bottom: 12px;
-      flex-wrap: wrap;
-    }
-
-    .tab {
-      background: #e9ecef;
-      color: #333;
-    }
-
-    .tab.active {
-      background: #333;
-      color: #fff;
-    }
-
-    .hidden { display: none !important; }
-
-    .loading {
-      padding: 20px;
-      text-align: center;
-      color: var(--muted);
-    }
-
-    .mobile-menu {
-      display: none;
-      position: fixed;
-      top: 10px;
-      left: 10px;
-      z-index: 30;
-      background: #222;
-      color: #fff;
-      border-radius: 6px;
-    }
-
-    .connection {
-      font-size: 12px;
-      margin-left: auto;
-    }
-
-    .dot {
-      display: inline-block;
-      width: 9px;
-      height: 9px;
-      border-radius: 50%;
-      margin-right: 4px;
-      background: #aaa;
-    }
-
-    .dot.ok { background: #21a366; }
-    .dot.error { background: #d33; }
-
-    .empty {
-      text-align: center;
-      padding: 30px;
-      color: var(--muted);
-    }
-
-    .modal {
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,.55);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 15px;
-      z-index: 100;
-    }
-
-    .modal-card {
-      background: #fff;
-      border-radius: 10px;
-      width: min(600px, 100%);
-      padding: 20px;
-      max-height: 90vh;
-      overflow: auto;
-    }
-
-    .progress-bar {
-      width: 100%;
-      height: 20px;
-      background: #e9ecef;
-      border-radius: 10px;
-      overflow: hidden;
-      margin: 10px 0;
-    }
-
-    .progress-bar .fill {
-      height: 100%;
-      background: var(--primary);
-      border-radius: 10px;
-      transition: width 0.3s ease;
-      width: 0%;
-    }
-
-    .btn-sm {
-      padding: 4px 8px;
-      font-size: 12px;
-    }
-
-    .ultimas-os {
-      margin-top: 15px;
-      border-top: 1px solid var(--border);
-      padding-top: 15px;
-    }
-
-    .ultimas-os .os-item {
-      padding: 8px 12px;
-      border-bottom: 1px solid #f0f0f0;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .ultimas-os .os-item:last-child {
-      border-bottom: none;
-    }
-
-    .ultimas-os .os-item .os-id {
-      font-weight: 700;
-      color: var(--primary);
-    }
-
-    .ultimas-os .os-item .os-desc {
-      flex: 1;
-      margin: 0 10px;
-    }
-
-    @media (max-width: 900px) {
-      .sidebar {
-        transform: translateX(-100%);
-        transition: transform .2s;
+      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    }
+    
+    @media print {
+      .no-print { display: none !important; }
+      .print-only { display: block !important; }
+      body { background: white !important; color: black !important; }
+      .printable-card {
+        box-shadow: none !important;
+        border: 1px solid #ccc !important;
+        max-width: 100% !important;
       }
-
-      .sidebar.open { transform: translateX(0); }
-
-      .mobile-menu { display: block; }
-
-      .main {
-        margin-left: 0;
-        width: 100%;
-        padding: 18px 12px;
-      }
-
-      .grid, .grid-3, .charts, .stat-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .header { padding-top: 38px; }
-      .connection { display: none; }
     }
   </style>
-</head>
+<script src="/_aistudio-iframe.js?v=2f1c016a"></script></head>
+<body class="bg-zinc-50 text-zinc-900 min-h-screen flex flex-col selection:bg-red-500 selection:text-white">
 
-<body>
-  <button class="mobile-menu" onclick="toggleSidebar()">☰ Menu</button>
-
-  <div class="layout">
-    <aside class="sidebar" id="sidebar">
-      <div class="brand">
-        🔧 GESTÃO DE OS
-        <small>KING & JOE</small>
-      </div>
-
-      <button class="menu-btn active" data-page="cadastrar">📝 Cadastrar OS</button>
-      <button class="menu-btn" data-page="dashboard">📊 Dashboard</button>
-      <button class="menu-btn" data-page="supervisao">🔐 Supervisão</button>
-
-      <div class="sidebar-footer">
-        <strong>Sistema de Gestão de Ordens de Serviço</strong><br>
-        Versão 3.1 HTML<br>
-        Desenvolvedor Robson Vilela<br>
-        © 2026
-      </div>
-    </aside>
-
-    <main class="main">
-      <div class="page">
-        <div class="header">
-          <img id="logoImg" class="logo hidden" alt="Logo">
-          <div>
-            <h1>GESTÃO DA MANUTENÇÃO</h1>
-          </div>
-          <div class="connection" id="connectionStatus">
-            <span class="dot"></span> Conectando...
+  <!-- Top Executive Navbar -->
+  <header class="no-print bg-zinc-950 text-white border-b border-zinc-800 sticky top-0 z-30 shadow-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        <!-- Logo & Branding -->
+        <div class="flex items-center gap-3">
+          <button id="btnToggleMobileMenu" class="lg:hidden p-2 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800">
+            <i data-lucide="menu" class="w-6 h-6"></i>
+          </button>
+          
+          <div class="flex items-center gap-2.5">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center text-white shadow-sm font-black text-lg">
+              K&amp;J
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="font-extrabold tracking-tight text-white text-base sm:text-lg">KING &amp; JOE</span>
+                <span class="bg-red-500/20 text-red-400 text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider border border-red-500/30">Pro 3.5</span>
+              </div>
+              <p class="text-[11px] text-zinc-400 font-medium hidden sm:block">Gestão de Manutenção &amp; Ordens de Serviço</p>
+            </div>
           </div>
         </div>
 
-        <div class="subtitle">KING & JOE</div>
-        <hr>
+        <!-- Central KPI Pills -->
+        <div class="hidden md:flex items-center gap-3">
+          <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 text-xs font-semibold">
+            <i data-lucide="clock" class="w-3.5 h-3.5"></i>
+            <span id="navCounterPendentes">0 Pendentes</span>
+          </div>
+          <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 text-xs font-semibold">
+            <i data-lucide="play" class="w-3.5 h-3.5"></i>
+            <span id="navCounterExecucao">0 Em Execução</span>
+          </div>
+          <div id="navPillUrgentes" class="hidden flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/20 text-red-400 border border-red-500/30 text-xs font-semibold animate-pulse">
+            <i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i>
+            <span id="navCounterUrgentes">0 Urgentes</span>
+          </div>
+        </div>
 
-        <section id="page-cadastrar" class="page-section"></section>
-        <section id="page-dashboard" class="page-section hidden"></section>
-        <section id="page-supervisao" class="page-section hidden"></section>
+        <!-- Connection Badge & Action Buttons -->
+        <div class="flex items-center gap-2 sm:gap-3">
+          <div id="connectionStatusBadge" class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border bg-zinc-900 border-zinc-700 text-zinc-300">
+            <span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
+            <span>Conectando...</span>
+          </div>
+
+          <button id="btnRecarregarSupabase" class="p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors" title="Sincronizar dados">
+            <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+          </button>
+
+          <button onclick="navegarPara('cadastro')" class="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-xs sm:text-sm font-semibold px-3.5 py-2 rounded-xl transition-colors shadow-sm">
+            <i data-lucide="plus-circle" class="w-4 h-4"></i>
+            <span class="hidden xs:inline">Nova OS</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="flex-1 flex overflow-hidden">
+    <!-- Sidebar Navigation -->
+    <aside id="mainSidebar" class="no-print fixed top-0 bottom-0 left-0 z-40 w-64 bg-zinc-950 text-zinc-200 border-r border-zinc-800 flex flex-col transition-transform duration-200 ease-in-out -translate-x-full lg:translate-x-0 lg:static lg:h-[calc(100vh-4rem)]">
+      <div class="p-4 border-b border-zinc-800 flex items-center justify-between lg:hidden">
+        <span class="font-bold text-white text-sm">MENU DE NAVEGAÇÃO</span>
+        <button id="btnCloseSidebar" class="p-1 rounded-md text-zinc-400 hover:text-white hover:bg-zinc-800">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="flex-1 px-3 py-4 space-y-1.5 overflow-y-auto">
+        <div class="px-3 pb-2 text-[11px] font-bold text-zinc-500 uppercase tracking-wider">Módulos</div>
+        
+        <button onclick="navegarPara('painel')" id="nav-btn-painel" class="nav-item w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-left transition-all bg-red-600/15 text-red-400 border border-red-500/30 font-semibold">
+          <div class="flex items-center gap-3">
+            <i data-lucide="layout-dashboard" class="w-5 h-5 text-red-500"></i>
+            <div>
+              <div class="text-sm font-medium">Painel de OS</div>
+              <div class="text-[11px] text-zinc-400">Kanban &amp; Tabela</div>
+            </div>
+          </div>
+          <span id="sidebarTotalBadge" class="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">0</span>
+        </button>
+
+        <button onclick="navegarPara('cadastro')" id="nav-btn-cadastro" class="nav-item w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-left transition-all text-zinc-300 hover:text-white hover:bg-zinc-900 border border-transparent">
+          <div class="flex items-center gap-3">
+            <i data-lucide="plus-circle" class="w-5 h-5 text-zinc-400"></i>
+            <div>
+              <div class="text-sm font-medium">Cadastrar OS</div>
+              <div class="text-[11px] text-zinc-500">Abertura de Chamado</div>
+            </div>
+          </div>
+        </button>
+
+        <button onclick="navegarPara('dashboard')" id="nav-btn-dashboard" class="nav-item w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-left transition-all text-zinc-300 hover:text-white hover:bg-zinc-900 border border-transparent">
+          <div class="flex items-center gap-3">
+            <i data-lucide="bar-chart-3" class="w-5 h-5 text-zinc-400"></i>
+            <div>
+              <div class="text-sm font-medium">Dashboard Analítico</div>
+              <div class="text-[11px] text-zinc-500">Gráficos &amp; KPIs</div>
+            </div>
+          </div>
+        </button>
+
+        <button onclick="navegarPara('supervisao')" id="nav-btn-supervisao" class="nav-item w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-left transition-all text-zinc-300 hover:text-white hover:bg-zinc-900 border border-transparent">
+          <div class="flex items-center gap-3">
+            <i data-lucide="shield-check" class="w-5 h-5 text-zinc-400"></i>
+            <div>
+              <div class="text-sm font-medium">Supervisão &amp; Auditoria</div>
+              <div class="text-[11px] text-zinc-500">Edição e Exclusão Segura</div>
+            </div>
+          </div>
+        </button>
+
+        <button onclick="navegarPara('backups')" id="nav-btn-backups" class="nav-item w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-left transition-all text-zinc-300 hover:text-white hover:bg-zinc-900 border border-transparent">
+          <div class="flex items-center gap-3">
+            <i data-lucide="database-backup" class="w-5 h-5 text-zinc-400"></i>
+            <div>
+              <div class="text-sm font-medium">Backups &amp; CSV</div>
+              <div class="text-[11px] text-zinc-500">Exportação e Importação</div>
+            </div>
+          </div>
+        </button>
+      </div>
+
+      <!-- Footer Info -->
+      <div class="p-4 border-t border-zinc-800/80 bg-zinc-950/60 text-xs">
+        <div class="bg-zinc-900/90 rounded-xl p-3 border border-zinc-800 mb-2">
+          <div class="font-bold text-zinc-300 flex items-center gap-1.5 mb-0.5">
+            <i data-lucide="sparkles" class="w-3.5 h-3.5 text-red-400"></i>
+            <span>King &amp; Joe Supabase</span>
+          </div>
+          <p class="text-[11px] text-zinc-400">Base em nuvem com sincronização em tempo real.</p>
+        </div>
+        <div class="text-[11px] text-zinc-500 leading-snug">
+          Desenvolvido por <strong>Robson Vilela</strong><br>
+          King &amp; Joe © 2026
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content Container -->
+    <main class="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+      <div class="max-w-7xl mx-auto">
+        
+        <!-- SECTION 1: PAINEL DE OS (KANBAN / TABELA) -->
+        <section id="section-painel" class="space-y-5">
+          <!-- Control Bar -->
+          <div class="bg-white p-4 sm:p-5 rounded-2xl border border-zinc-200 shadow-xs space-y-3">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div class="relative flex-1 max-w-md">
+                <i data-lucide="search" class="w-4 h-4 text-zinc-400 absolute left-3.5 top-3"></i>
+                <input type="text" id="inputBuscaPainel" placeholder="Pesquisar por ID, descrição, solicitante, setor..." class="w-full pl-10 pr-4 py-2 rounded-xl border border-zinc-300 focus:ring-2 focus:ring-red-500 outline-none text-xs sm:text-sm text-zinc-900 shadow-xs">
+              </div>
+
+              <div class="flex items-center gap-2 self-end md:self-auto">
+                <div class="flex items-center bg-zinc-100 p-1 rounded-xl border border-zinc-200 text-xs font-semibold">
+                  <button id="btnViewKanban" onclick="setModoVisualizacao('kanban')" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-zinc-900 shadow-xs transition-all">
+                    <i data-lucide="layout-grid" class="w-4 h-4"></i>
+                    <span>Kanban</span>
+                  </button>
+                  <button id="btnViewTabela" onclick="setModoVisualizacao('tabela')" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-zinc-600 hover:text-zinc-900 transition-all">
+                    <i data-lucide="table" class="w-4 h-4"></i>
+                    <span>Tabela</span>
+                  </button>
+                </div>
+
+                <button onclick="navegarPara('cadastro')" class="flex items-center gap-1.5 px-3.5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-colors shadow-xs">
+                  <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                  <span>Nova OS</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Quick Filter Pills -->
+            <div class="flex items-center justify-between flex-wrap gap-2 pt-2 border-t border-zinc-100 text-xs">
+              <div class="flex items-center gap-1.5 flex-wrap" id="painelFilterPills">
+                <button onclick="filtrarPainelStatus('todos')" class="filter-pill active px-3 py-1 rounded-full font-semibold bg-zinc-900 text-white">Todas (<span id="countPillTodas">0</span>)</button>
+                <button onclick="filtrarPainelStatus('Pendente')" class="filter-pill px-3 py-1 rounded-full font-semibold bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100">Pendentes (<span id="countPillPendentes">0</span>)</button>
+                <button onclick="filtrarPainelStatus('Em execução')" class="filter-pill px-3 py-1 rounded-full font-semibold bg-blue-50 text-blue-800 border border-blue-200 hover:bg-blue-100">Em Execução (<span id="countPillExecucao">0</span>)</button>
+                <button id="btnToggleUrgentesFiltro" onclick="toggleFiltroUrgentes()" class="flex items-center gap-1 px-3 py-1 rounded-full font-bold border bg-red-50 text-red-700 border-red-200 hover:bg-red-100">
+                  <i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i>
+                  <span>Apenas Urgentes (<span id="countPillUrgentes">0</span>)</span>
+                </button>
+              </div>
+
+              <!-- Executante Dropdown -->
+              <div class="flex items-center gap-1.5">
+                <i data-lucide="user" class="w-3.5 h-3.5 text-zinc-400"></i>
+                <select id="selectFiltroExecutantePainel" onchange="renderizarPainel()" class="px-2.5 py-1 bg-zinc-50 border border-zinc-200 rounded-lg text-xs font-semibold text-zinc-700 outline-none">
+                  <option value="todos">Todos os Executantes</option>
+                  <option value="Guilherme">Guilherme</option>
+                  <option value="Ismael">Ismael</option>
+                  <option value="Robson">Robson</option>
+                  <option value="Técnico Externo">Técnico Externo</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- KANBAN VIEW CONTAINER -->
+          <div id="containerKanban" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-start">
+            <!-- Columns injected by JS -->
+          </div>
+
+          <!-- TABELA VIEW CONTAINER -->
+          <div id="containerTabela" class="hidden bg-white rounded-2xl border border-zinc-200 shadow-xs overflow-hidden">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs text-zinc-700">
+                <thead class="bg-zinc-100 text-zinc-600 font-bold uppercase tracking-wider border-b border-zinc-200">
+                  <tr>
+                    <th class="py-3.5 px-4">ID</th>
+                    <th class="py-3.5 px-4">Status</th>
+                    <th class="py-3.5 px-4">Prioridade</th>
+                    <th class="py-3.5 px-4 min-w-[220px]">Descrição</th>
+                    <th class="py-3.5 px-4">Solicitante</th>
+                    <th class="py-3.5 px-4">Local</th>
+                    <th class="py-3.5 px-4">Tipo</th>
+                    <th class="py-3.5 px-4">Executante</th>
+                    <th class="py-3.5 px-4">Abertura</th>
+                    <th class="py-3.5 px-4">Conclusão</th>
+                    <th class="py-3.5 px-4 text-right">Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="tabelaOrdensBody" class="divide-y divide-zinc-200">
+                  <!-- Rows injected by JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- SECTION 2: CADASTRAR OS -->
+        <section id="section-cadastro" class="hidden space-y-6">
+          <div class="bg-gradient-to-r from-zinc-900 to-zinc-800 text-white p-6 rounded-2xl border border-zinc-700/60 shadow-md">
+            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div>
+                <span class="bg-red-500 text-white text-[11px] font-extrabold uppercase px-2 py-0.5 rounded tracking-wider">Novo Chamado</span>
+                <h2 class="text-2xl font-black tracking-tight text-white mt-1">Cadastrar Ordem de Serviço</h2>
+                <p class="text-xs sm:text-sm text-zinc-300 mt-1 max-w-xl">Preencha os dados da atividade de manutenção. Data e hora de Brasília são calculadas automaticamente.</p>
+              </div>
+              <div class="bg-zinc-800/80 p-3 rounded-xl border border-zinc-700 text-xs text-zinc-300 min-w-[200px]">
+                <span class="text-[10px] uppercase font-bold text-zinc-400 block mb-1">Horário de Brasília</span>
+                <div id="liveClockDisplay" class="flex items-center gap-2 text-white font-mono font-bold text-sm">--/--/---- --:--</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <!-- Form Column -->
+            <div class="lg:col-span-8 bg-white p-6 sm:p-7 rounded-2xl border border-zinc-200 shadow-xs">
+              <form id="formCadastrarOS" class="space-y-5">
+                <div>
+                  <label class="block text-xs font-bold text-zinc-800 uppercase tracking-wider mb-1.5">Descrição Detalhada da Atividade / Falha *</label>
+                  <textarea id="cadDescricao" required rows="3" placeholder="Descreva detalhadamente o problema ou serviço necessário..." class="w-full px-4 py-3 rounded-xl border border-zinc-300 focus:ring-2 focus:ring-red-500 outline-none text-zinc-900 text-sm resize-y shadow-xs"></textarea>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label class="block text-xs font-bold text-zinc-800 uppercase tracking-wider mb-1.5">Solicitante *</label>
+                    <div class="relative">
+                      <i data-lucide="user" class="w-4 h-4 text-zinc-400 absolute left-3.5 top-3.5"></i>
+                      <input id="cadSolicitante" type="text" required placeholder="Nome do colaborador ou setor" class="w-full pl-10 pr-3 py-2.5 rounded-xl border border-zinc-300 focus:ring-2 focus:ring-red-500 outline-none text-zinc-900 text-sm font-medium shadow-xs">
+                    </div>
+                  </div>
+
+                  <div>
+                    <label class="block text-xs font-bold text-zinc-800 uppercase tracking-wider mb-1.5">Local / Setor *</label>
+                    <div class="relative">
+                      <i data-lucide="map-pin" class="w-4 h-4 text-zinc-400 absolute left-3.5 top-3.5"></i>
+                      <input id="cadLocal" type="text" required list="listaLocaisSugestao" placeholder="Ex: Produção, Refeitório, Estoque..." class="w-full pl-10 pr-3 py-2.5 rounded-xl border border-zinc-300 focus:ring-2 focus:ring-red-500 outline-none text-zinc-900 text-sm font-medium shadow-xs">
+                      <datalist id="listaLocaisSugestao">
+                        <option value="Produção / Fábrica">
+                        <option value="Expedição &amp; Estoque">
+                        <option value="Escritório Administrativo">
+                        <option value="Refeitório">
+                        <option value="Oficina de Manutenção">
+                        <option value="Sala de Máquinas / Compressores">
+                        <option value="Loja King &amp; Joe">
+                        <option value="Estacionamento / Pátio">
+                      </datalist>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label class="block text-xs font-bold text-zinc-800 uppercase tracking-wider mb-1.5">Tipo / Especialidade</label>
+                    <select id="cadTipo" class="w-full px-3 py-2.5 rounded-xl border border-zinc-300 focus:ring-2 focus:ring-red-500 outline-none text-zinc-900 text-sm font-medium shadow-xs bg-white">
+                      <option value="">Selecione o Tipo</option>
+                      <option value="Elétrica">Elétrica</option>
+                      <option value="Mecânica">Mecânica</option>
+                      <option value="Refrigeração">Refrigeração</option>
+                      <option value="Hidráulica">Hidráulica</option>
+                      <option value="Civil">Civil</option>
+                      <option value="Instalação">Instalação</option>
+                      <option value="Outros">Outros</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label class="block text-xs font-bold text-zinc-800 uppercase tracking-wider mb-1.5">Executante Sugerido (Opcional)</label>
+                    <select id="cadExecutante" class="w-full px-3 py-2.5 rounded-xl border border-zinc-300 focus:ring-2 focus:ring-red-500 outline-none text-zinc-900 text-sm font-medium shadow-xs bg-white">
+                      <option value="">A definir pela supervisão</option>
+                      <option value="Guilherme">Guilherme</option>
+                      <option value="Ismael">Ismael</option>
+                      <option value="Robson">Robson</option>
+                      <option value="Técnico Externo">Técnico Externo</option>
+                    </select>
+                  </div>
+                </div>
+
+                <!-- Priority Card -->
+                <div id="cardToggleUrgente" class="p-4 rounded-xl border bg-zinc-50 border-zinc-200 cursor-pointer hover:bg-zinc-100/80 transition-all flex items-center justify-between">
+                  <div class="flex items-center gap-3">
+                    <input type="checkbox" id="cadUrgente" class="w-5 h-5 rounded text-red-600 focus:ring-red-500 cursor-pointer">
+                    <div>
+                      <span class="font-bold text-sm text-zinc-900 flex items-center gap-1.5">
+                        <i data-lucide="alert-triangle" class="w-4 h-4 text-zinc-400"></i>
+                        Chamado Urgente / Linha Parada
+                      </span>
+                      <p class="text-xs text-zinc-500">Marque se causar interrupção imediata na operação.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label class="block text-xs font-bold text-zinc-800 uppercase tracking-wider mb-1.5">Observações Iniciais (Opcional)</label>
+                  <input id="cadObservacoes" type="text" placeholder="Instruções de acesso ou detalhes adicionais..." class="w-full px-3 py-2 rounded-xl border border-zinc-300 focus:ring-2 focus:ring-red-500 outline-none text-zinc-900 text-sm">
+                </div>
+
+                <div class="pt-3 border-t border-zinc-200 flex items-center justify-end">
+                  <button type="submit" id="btnSubmitCadastro" class="flex items-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white rounded-xl font-bold text-sm transition-all shadow-md shadow-red-900/30">
+                    <i data-lucide="plus-circle" class="w-5 h-5"></i>
+                    <span>Cadastrar Ordem de Serviço</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            <!-- Side Column: Live Preview & Recent Open Orders -->
+            <div class="lg:col-span-4 space-y-6">
+              <div class="bg-white p-5 rounded-2xl border border-zinc-200 shadow-xs">
+                <div class="flex items-center gap-2 text-zinc-500 text-xs font-bold uppercase tracking-wider mb-3">
+                  <i data-lucide="sparkles" class="w-4 h-4 text-red-500"></i>
+                  <span>Prévia da Ordem de Serviço</span>
+                </div>
+                <div class="border border-zinc-200 rounded-xl p-3.5 bg-zinc-50/50 space-y-2">
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs font-black text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-200">#NOVA</span>
+                    <span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">Pendente</span>
+                  </div>
+                  <p id="previewDescricao" class="font-semibold text-zinc-900 text-sm line-clamp-2">A descrição aparecerá aqui enquanto você digita...</p>
+                  <div class="text-[11px] text-zinc-600 space-y-0.5 pt-1 border-t border-zinc-200">
+                    <div>Solicitante: <strong id="previewSolicitante">A preencher</strong></div>
+                    <div>Local: <strong id="previewLocal">A preencher</strong></div>
+                    <div>Especialidade: <strong id="previewTipo">Geral</strong></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="bg-white p-5 rounded-2xl border border-zinc-200 shadow-xs">
+                <h4 class="font-bold text-zinc-800 text-sm mb-3">📋 Últimas OS em Aberto</h4>
+                <div id="listaUltimasAbertas" class="divide-y divide-zinc-100 text-xs">
+                  <!-- Injected by JS -->
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- SECTION 3: DASHBOARD ANALÍTICO -->
+        <section id="section-dashboard" class="hidden space-y-6">
+          <div class="bg-white p-6 rounded-2xl border border-zinc-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h2 class="text-xl font-black text-zinc-900 flex items-center gap-2">
+                <i data-lucide="bar-chart-3" class="w-6 h-6 text-red-600"></i>
+                <span>Dashboard Analítico de Manutenção</span>
+              </h2>
+              <p className="text-xs text-zinc-500">Métricas de resolução, distribuição por especialidade e ranking de técnicos.</p>
+            </div>
+
+            <div class="flex items-center gap-3">
+              <div class="flex items-center gap-1.5 bg-zinc-100 p-1 rounded-xl border border-zinc-200 text-xs font-semibold">
+                <button id="btnDashPeriodoTodos" onclick="setDashboardPeriodo('Todos')" class="px-3 py-1.5 rounded-lg bg-white text-zinc-900 shadow-xs transition-all">Histórico Completo</button>
+                <button id="btnDashPeriodoMes" onclick="setDashboardPeriodo('MesAno')" class="px-3 py-1.5 rounded-lg text-zinc-600 hover:text-zinc-900 transition-all">Por Mês/Ano</button>
+              </div>
+
+              <div id="dashMesAnoFiltros" class="hidden flex items-center gap-2">
+                <select id="dashSelectMes" onchange="atualizarDashboard()" class="px-2.5 py-1.5 bg-white border border-zinc-300 rounded-xl text-xs font-semibold text-zinc-800">
+                  <option value="1">01 - Jan</option><option value="2">02 - Fev</option><option value="3">03 - Mar</option><option value="4">04 - Abr</option>
+                  <option value="5">05 - Mai</option><option value="6">06 - Jun</option><option value="7">07 - Jul</option><option value="8">08 - Ago</option>
+                  <option value="9">09 - Set</option><option value="10">10 - Out</option><option value="11">11 - Nov</option><option value="12">12 - Dez</option>
+                </select>
+                <select id="dashSelectAno" onchange="atualizarDashboard()" class="px-2.5 py-1.5 bg-white border border-zinc-300 rounded-xl text-xs font-semibold text-zinc-800">
+                  <option value="2024">2024</option><option value="2025">2025</option><option value="2026" selected>2026</option><option value="2027">2027</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- KPI Cards -->
+          <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-white p-5 rounded-2xl border border-zinc-200 shadow-xs">
+              <span class="text-xs font-bold text-zinc-500 uppercase">Total de Ordens</span>
+              <div id="dashTotalOS" class="text-3xl font-black text-zinc-900 mt-1">0</div>
+              <div class="text-[11px] text-zinc-400 mt-1">Ordens registradas</div>
+            </div>
+
+            <div class="bg-white p-5 rounded-2xl border border-zinc-200 shadow-xs">
+              <span class="text-xs font-bold text-zinc-500 uppercase">Concluídas</span>
+              <div id="dashConcluidasOS" class="text-3xl font-black text-emerald-600 mt-1">0</div>
+              <div id="dashTaxaConclusao" class="text-[11px] text-emerald-700 font-semibold mt-1">0% de resolução</div>
+            </div>
+
+            <div class="bg-white p-5 rounded-2xl border border-zinc-200 shadow-xs">
+              <span class="text-xs font-bold text-zinc-500 uppercase">Em Aberto</span>
+              <div id="dashAbertasOS" class="text-3xl font-black text-blue-600 mt-1">0</div>
+              <div id="dashSubAbertas" class="text-[11px] text-zinc-500 mt-1">0 pendentes, 0 em execução</div>
+            </div>
+
+            <div class="bg-white p-5 rounded-2xl border border-zinc-200 shadow-xs">
+              <span class="text-xs font-bold text-zinc-500 uppercase">Chamados Críticos</span>
+              <div id="dashUrgentesOS" class="text-3xl font-black text-red-600 mt-1">0</div>
+              <div class="text-[11px] text-red-700 font-medium mt-1">Linha parada / prioridade</div>
+            </div>
+          </div>
+
+          <!-- Charts Grid -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="bg-white p-6 rounded-2xl border border-zinc-200 shadow-xs">
+              <h3 class="font-bold text-zinc-900 text-base mb-1">Distribuição por Tipo de Manutenção</h3>
+              <p class="text-xs text-zinc-500 mb-4">Gráfico proporcional de serviços executados</p>
+              <div class="h-64 relative">
+                <canvas id="chartTiposCanvas"></canvas>
+              </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl border border-zinc-200 shadow-xs">
+              <h3 class="font-bold text-zinc-900 text-base mb-1">OS Concluídas por Executante</h3>
+              <p class="text-xs text-zinc-500 mb-4">Ranking de resolução da equipe técnica</p>
+              <div class="h-64 relative">
+                <canvas id="chartExecutantesCanvas"></canvas>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- SECTION 4: SUPERVISÃO & AUDITORIA -->
+        <section id="section-supervisao" class="hidden space-y-6">
+          <div id="supervisaoLockBox" class="max-w-md mx-auto py-12 px-4">
+            <div class="bg-white p-8 rounded-3xl border border-zinc-200 shadow-xl text-center space-y-6">
+              <div class="w-16 h-16 bg-red-50 text-red-600 rounded-2xl flex items-center justify-center mx-auto border border-red-100">
+                <i data-lucide="lock" class="w-8 h-8"></i>
+              </div>
+              <div>
+                <h3 class="text-xl font-extrabold text-zinc-900">Área de Supervisão Restrita</h3>
+                <p class="text-xs text-zinc-500 mt-1">Acesso exclusivo para encarregados e gestores da King &amp; Joe.</p>
+              </div>
+              <form id="formLoginSupervisao" class="space-y-4 text-left">
+                <div>
+                  <label class="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1.5">Senha de Acesso</label>
+                  <input id="inputSenhaSupervisao" type="password" required placeholder="Digite a senha..." class="w-full px-4 py-3 rounded-xl border border-zinc-300 focus:ring-2 focus:ring-red-500 outline-none text-zinc-900 text-sm font-medium">
+                  <span id="msgErroSenha" class="hidden text-xs text-red-600 font-semibold mt-1 block">Senha incorreta. Tente novamente.</span>
+                </div>
+                <button type="submit" class="w-full py-3 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white rounded-xl font-bold text-sm transition-colors shadow-md shadow-red-900/30">
+                  Liberar Painel de Supervisão
+                </button>
+              </form>
+              <div class="text-[11px] text-zinc-400 border-t border-zinc-100 pt-4">
+                Dica padrão: <code>king@2025</code>
+              </div>
+            </div>
+          </div>
+
+          <div id="supervisaoUnlockedContent" class="hidden space-y-6">
+            <div class="bg-white p-6 rounded-2xl border border-zinc-200 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center">
+                  <i data-lucide="shield-check" class="w-6 h-6"></i>
+                </div>
+                <div>
+                  <h2 class="text-lg sm:text-xl font-black text-zinc-900">Painel do Supervisor Autorizado</h2>
+                  <p class="text-xs text-zinc-500">Busca multicritério avançada, auditoria e exclusão segura.</p>
+                </div>
+              </div>
+              <button onclick="bloquearSupervisao()" class="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-zinc-600 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors border border-zinc-200">
+                <i data-lucide="log-out" class="w-4 h-4"></i>
+                <span>Bloquear Sessão</span>
+              </button>
+            </div>
+
+            <!-- Advanced Multi-Filter Search Bar -->
+            <div class="bg-white p-5 rounded-2xl border border-zinc-200 shadow-xs space-y-3">
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div class="relative lg:col-span-2">
+                  <i data-lucide="search" class="w-4 h-4 text-zinc-400 absolute left-3.5 top-3"></i>
+                  <input type="text" id="inputBuscaSupervisao" oninput="renderizarSupervisao()" placeholder="Buscar por ID, solicitante, setor, texto..." class="w-full pl-10 pr-3 py-2 rounded-xl border border-zinc-300 focus:ring-2 focus:ring-red-500 outline-none text-xs sm:text-sm text-zinc-900">
+                </div>
+                <select id="selectFiltroStatusSuper" onchange="renderizarSupervisao()" class="px-3 py-2 rounded-xl border border-zinc-300 text-xs font-medium text-zinc-800 bg-white">
+                  <option value="todos">Status: Todos</option>
+                  <option value="Pendente">Pendente</option>
+                  <option value="Em execução">Em execução</option>
+                  <option value="Pausado">Pausado</option>
+                  <option value="Concluído">Concluído</option>
+                </select>
+                <select id="selectFiltroTipoSuper" onchange="renderizarSupervisao()" class="px-3 py-2 rounded-xl border border-zinc-300 text-xs font-medium text-zinc-800 bg-white">
+                  <option value="todos">Tipo: Todos</option>
+                  <option value="Elétrica">Elétrica</option>
+                  <option value="Mecânica">Mecânica</option>
+                  <option value="Refrigeração">Refrigeração</option>
+                  <option value="Hidráulica">Hidráulica</option>
+                  <option value="Civil">Civil</option>
+                  <option value="Instalação">Instalação</option>
+                  <option value="Outros">Outros</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Supervision Table with Safe Deletion -->
+            <div class="bg-white rounded-2xl border border-zinc-200 shadow-xs overflow-hidden">
+              <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs text-zinc-700">
+                  <thead class="bg-zinc-100 text-zinc-600 font-bold uppercase tracking-wider border-b border-zinc-200">
+                    <tr>
+                      <th class="py-3 px-4">ID</th>
+                      <th class="py-3 px-4">Status</th>
+                      <th class="py-3 px-4 min-w-[200px]">Descrição</th>
+                      <th class="py-3 px-4">Solicitante</th>
+                      <th class="py-3 px-4">Local</th>
+                      <th class="py-3 px-4">Tipo</th>
+                      <th class="py-3 px-4">Executante</th>
+                      <th class="py-3 px-4">Data</th>
+                      <th class="py-3 px-4 text-right">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tabelaSupervisaoBody" class="divide-y divide-zinc-200">
+                    <!-- Rows injected by JS -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- SECTION 5: BACKUPS & CSV -->
+        <section id="section-backups" class="hidden space-y-6">
+          <div class="bg-white p-6 rounded-2xl border border-zinc-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+              <div class="w-12 h-12 rounded-xl bg-red-50 text-red-600 border border-red-200 flex items-center justify-center">
+                <i data-lucide="database-backup" class="w-6 h-6"></i>
+              </div>
+              <div>
+                <h2 class="text-xl font-black text-zinc-900">Gestão de Backups &amp; Integração CSV</h2>
+                <p class="text-xs text-zinc-500">Exporte para planilhas Excel ou importe arquivos legados da versão Python.</p>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-2 flex-wrap">
+              <button onclick="criarBackupSnapshot()" class="flex items-center gap-1.5 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-colors shadow-xs">
+                <i data-lucide="download" class="w-4 h-4"></i>
+                <span>Criar Backup Agora</span>
+              </button>
+              <button onclick="exportarCSVCompleto()" class="flex items-center gap-1.5 px-4 py-2 bg-zinc-800 hover:bg-zinc-900 text-white rounded-xl text-xs font-bold transition-colors shadow-xs">
+                <i data-lucide="file-spreadsheet" class="w-4 h-4 text-emerald-400"></i>
+                <span>Exportar CSV (Excel)</span>
+              </button>
+              <button onclick="abrirModalImportCSV()" class="flex items-center gap-1.5 px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 rounded-xl text-xs font-bold transition-colors border border-zinc-300">
+                <i data-lucide="upload-cloud" class="w-4 h-4 text-blue-600"></i>
+                <span>Importar CSV Antigo</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="bg-white p-6 rounded-2xl border border-zinc-200 shadow-xs space-y-4">
+            <div class="flex items-center justify-between">
+              <h3 class="text-base font-bold text-zinc-900">Snapshots de Contingência</h3>
+              <button onclick="limparBackupsLocais()" class="text-xs text-rose-600 hover:text-rose-700 font-semibold">Limpar Histórico</button>
+            </div>
+            <div id="listaSnapshotsBackups" class="divide-y divide-zinc-200 border border-zinc-200 rounded-xl overflow-hidden text-xs">
+              <!-- Injected by JS -->
+            </div>
+          </div>
+        </section>
+
       </div>
     </main>
   </div>
 
-  <div id="modalRoot"></div>
+  <!-- MODAL: DETALHES / EDIÇÃO RÁPIDA DA OS -->
+  <div id="modalDetalheOS" class="fixed inset-0 z-50 bg-black/65 hidden items-center justify-center p-3 sm:p-6 backdrop-blur-xs overflow-y-auto">
+    <div class="bg-white text-zinc-900 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[92vh] flex flex-col border border-zinc-200">
+      <div class="flex items-center justify-between px-6 py-4 border-b border-zinc-200 bg-zinc-50 rounded-t-2xl">
+        <div class="flex items-center gap-3">
+          <span id="modalOSIdBadge" class="font-extrabold text-red-600 text-lg">OS #--</span>
+          <span id="modalOSStatusBadge" class="text-xs font-bold px-2.5 py-0.5 rounded-full">Status</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="btnModalImprimir" class="p-2 text-zinc-600 hover:text-red-600 hover:bg-zinc-200 rounded-xl transition-colors" title="Imprimir Ficha">
+            <i data-lucide="printer" class="w-5 h-5"></i>
+          </button>
+          <button onclick="fecharModalDetalhe()" class="p-2 text-zinc-500 hover:text-zinc-800 hover:bg-zinc-200 rounded-xl">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+      </div>
 
-<script>
-/* ================================================================
-   CONFIGURAÇÃO DO SUPABASE
-   ================================================================ */
-const SUPABASE_URL = "https://tcfbgekwkejgywoyuppt.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_dr1YdwfMQ5sp1Zjp0kOPKA_4djuJUab";
-
-const TABLE_NAME = "ordens_servico";
-const SENHA_SUPERVISAO = "king@2025";
-
-const EXECUTANTES_PREDEFINIDOS = ["Guilherme", "Ismael"];
-
-const TIPOS_MANUTENCAO = [
-  "Elétrica",
-  "Mecânica",
-  "Refrigeração",
-  "Hidráulica",
-  "Civil",
-  "Instalação"
-];
-
-const STATUS_OPCOES = [
-  "Pendente",
-  "Pausado",
-  "Em execução",
-  "Concluído"
-];
-
-let supabaseClient = null;
-let dados = [];
-let autenticado = false;
-let notificacoesLimpas = false;
-let chartTipo = null;
-let chartExecutantes = null;
-let chartStatus = null;
-let dashboardPeriodo = "Todos";
-let dashboardMes = new Date().getMonth() + 1;
-let dashboardAno = new Date().getFullYear();
-
-/* ================================================================
-   INICIALIZAÇÃO
-   ================================================================ */
-document.addEventListener("DOMContentLoaded", async () => {
-  configurarMenu();
-  carregarLogo();
-  inicializarSupabase();
-  await carregarDados();
-  renderCadastrar();
-
-  // Mantém o comportamento original de recarregar a aplicação periodicamente.
-  setTimeout(() => {
-    if (document.visibilityState === "visible") window.location.reload();
-  }, 600000);
-});
-
-function configurarMenu() {
-  document.querySelectorAll(".menu-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      abrirPagina(btn.dataset.page);
-      document.getElementById("sidebar").classList.remove("open");
-    });
-  });
-}
-
-function abrirPagina(page) {
-  document.querySelectorAll(".page-section").forEach(el => el.classList.add("hidden"));
-  const alvo = document.getElementById("page-" + page);
-  if (alvo) alvo.classList.remove("hidden");
-
-  document.querySelectorAll(".menu-btn").forEach(btn => {
-    btn.classList.toggle("active", btn.dataset.page === page);
-  });
-
-  if (page === "cadastrar") renderCadastrar();
-  if (page === "dashboard") renderDashboard();
-  if (page === "supervisao") renderSupervisao();
-}
-
-function toggleSidebar() {
-  document.getElementById("sidebar").classList.toggle("open");
-}
-
-function inicializarSupabase() {
-  const status = document.getElementById("connectionStatus");
-
-  if (
-    SUPABASE_URL.startsWith("COLE_") ||
-    SUPABASE_ANON_KEY.startsWith("COLE_") ||
-    !window.supabase
-  ) {
-    status.innerHTML = '<span class="dot error"></span> Configure o Supabase no código';
-    return false;
-  }
-
-  try {
-    supabaseClient = window.supabase.createClient(
-      SUPABASE_URL,
-      SUPABASE_ANON_KEY
-    );
-    return true;
-  } catch (erro) {
-    status.innerHTML = '<span class="dot error"></span> Erro na configuração';
-    console.error(erro);
-    return false;
-  }
-}
-
-async function testarConexao() {
-  const status = document.getElementById("connectionStatus");
-
-  if (!supabaseClient) {
-    status.innerHTML = '<span class="dot error"></span> Supabase não configurado';
-    return false;
-  }
-
-  try {
-    const { error } = await supabaseClient
-      .from(TABLE_NAME)
-      .select("id")
-      .limit(1);
-
-    if (error) throw error;
-
-    status.innerHTML = '<span class="dot ok"></span> Supabase conectado';
-    return true;
-  } catch (erro) {
-    status.innerHTML = '<span class="dot error"></span> Erro no Supabase';
-    console.error("Erro de conexão:", erro);
-    return false;
-  }
-}
-
-/* ================================================================
-   DADOS - COM PAGINAÇÃO PARA BUSCAR TODOS OS REGISTROS
-   ================================================================ */
-async function carregarDados() {
-  if (!supabaseClient) {
-    dados = [];
-    return;
-  }
-
-  mostrarLoading("Carregando dados...");
-
-  try {
-    // Busca todos os registros usando paginação
-    let allData = [];
-    let page = 0;
-    const pageSize = 1000;
-    let hasMore = true;
-
-    while (hasMore) {
-      const from = page * pageSize;
-      const to = from + pageSize - 1;
-
-      const { data, error } = await supabaseClient
-        .from(TABLE_NAME)
-        .select("*")
-        .order("id", { ascending: true })
-        .range(from, to);
-
-      if (error) throw error;
-
-      if (data && data.length > 0) {
-        allData = allData.concat(data);
-        page++;
-        // Se o número de registros retornados for menor que pageSize, é a última página
-        if (data.length < pageSize) {
-          hasMore = false;
-        }
-      } else {
-        hasMore = false;
-      }
-    }
-
-    dados = allData.map(normalizarRegistro);
-    atualizarStatusConexao(true);
-    
-    // Atualiza a interface se estiver visível
-    const pageAtual = document.querySelector(".page-section:not(.hidden)")?.id;
-    if (pageAtual === "page-cadastrar") renderCadastrar();
-    if (pageAtual === "page-supervisao") renderSupervisao();
-    if (pageAtual === "page-dashboard") renderDashboard();
-
-  } catch (erro) {
-    console.error("Erro ao carregar dados:", erro);
-    dados = [];
-    atualizarStatusConexao(false);
-    mostrarToast("Erro ao carregar os dados do Supabase.", "danger");
-  }
-}
-
-function normalizarRegistro(row) {
-  return {
-    id: Number(row.id),
-    descricao: row.descricao ?? "",
-    data: row.data ?? "",
-    hora_abertura: row.hora_abertura ?? "",
-    solicitante: row.solicitante ?? "",
-    local: row.local ?? "",
-    tipo: row.tipo ?? "",
-    status: row.status ?? "Pendente",
-    data_conclusao: row.data_conclusao ?? "",
-    hora_conclusao: row.hora_conclusao ?? "",
-    executante1: row.executante1 ?? "",
-    executante2: row.executante2 ?? "",
-    urgente: row.urgente ?? "Não",
-    observacoes: row.observacoes ?? "",
-    created_at: row.created_at ?? ""
-  };
-}
-
-function atualizarStatusConexao(ok) {
-  const status = document.getElementById("connectionStatus");
-  if (!status) return;
-  status.innerHTML = ok
-    ? '<span class="dot ok"></span> Supabase conectado'
-    : '<span class="dot error"></span> Erro no Supabase';
-}
-
-/* ================================================================
-   INSERIR OS - CORRIGIDO: GARANTE QUE NÃO ENVIA ID
-   ================================================================ */
-async function inserirOS(registro) {
-  if (!supabaseClient) {
-    mostrarToast("Configure o Supabase antes de salvar.", "danger");
-    return false;
-  }
-
-  try {
-    // Remove o campo id completamente - o banco vai gerar automaticamente
-    const { id, ...registroSemId } = registro;
-    
-    // Cria um objeto limpo sem nenhum campo id
-    const registroLimpo = {};
-    for (const [key, value] of Object.entries(registroSemId)) {
-      if (key !== 'id' && key !== 'ID') {
-        registroLimpo[key] = value;
-      }
-    }
-    
-    const { data, error } = await supabaseClient
-      .from(TABLE_NAME)
-      .insert([registroLimpo])
-      .select();
-
-    if (error) {
-      console.error("Erro detalhado:", error);
-      // Verifica se é erro de chave duplicada
-      if (error.message && error.message.includes("duplicate key")) {
-        mostrarToast("Erro: Conflito de ID. O sistema usa auto-incremento, não defina o ID manualmente.", "danger");
-      } else {
-        throw error;
-      }
-      return false;
-    }
-
-    await carregarDados();
-    return true;
-  } catch (erro) {
-    console.error("Erro ao inserir:", erro);
-    mostrarToast("Não foi possível salvar a OS: " + erro.message, "danger");
-    return false;
-  }
-}
-
-async function atualizarOSNoBanco(id, alteracoes) {
-  if (!supabaseClient) {
-    mostrarToast("Supabase não configurado.", "danger");
-    return false;
-  }
-
-  try {
-    const { error } = await supabaseClient
-      .from(TABLE_NAME)
-      .update(alteracoes)
-      .eq("id", id);
-
-    if (error) throw error;
-
-    await carregarDados();
-    return true;
-  } catch (erro) {
-    console.error("Erro ao atualizar:", erro);
-    mostrarToast("Não foi possível atualizar a OS: " + erro.message, "danger");
-    return false;
-  }
-}
-
-/* ================================================================
-   FUNÇÃO DE EXCLUSÃO
-   ================================================================ */
-async function excluirOS(id) {
-  if (!supabaseClient) {
-    mostrarToast("Supabase não configurado.", "danger");
-    return false;
-  }
-
-  // Busca a OS para exibir confirmação
-  const os = dados.find(x => x.id === id);
-  if (!os) {
-    mostrarToast("OS não encontrada.", "danger");
-    return false;
-  }
-
-  // Confirmação com o usuário
-  const confirmar = confirm(
-    `⚠️ ATENÇÃO: Você está prestes a EXCLUIR a OS #${id}\n\n` +
-    `Descrição: ${os.descricao}\n` +
-    `Solicitante: ${os.solicitante}\n` +
-    `Local: ${os.local}\n\n` +
-    `Esta ação NÃO pode ser desfeita!\n\n` +
-    `Deseja realmente excluir esta OS?`
-  );
-
-  if (!confirmar) {
-    mostrarToast("Exclusão cancelada.", "info");
-    return false;
-  }
-
-  try {
-    const { error } = await supabaseClient
-      .from(TABLE_NAME)
-      .delete()
-      .eq("id", id);
-
-    if (error) throw error;
-
-    await carregarDados();
-    mostrarToast(`OS #${id} excluída com sucesso!`, "success");
-    
-    // Recarrega a página de supervisão se estiver ativa
-    const pageAtual = document.querySelector(".page-section:not(.hidden)")?.id;
-    if (pageAtual === "page-supervisao") {
-      renderSupervisao();
-    }
-    if (pageAtual === "page-cadastrar") {
-      renderCadastrar();
-    }
-    
-    return true;
-  } catch (erro) {
-    console.error("Erro ao excluir:", erro);
-    mostrarToast("Não foi possível excluir a OS: " + erro.message, "danger");
-    return false;
-  }
-}
-
-/* ================================================================
-   UTILITÁRIOS
-   ================================================================ */
-function agoraBrasil() {
-  const agora = new Date();
-  const partes = new Intl.DateTimeFormat("pt-BR", {
-    timeZone: "America/Sao_Paulo",
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false
-  }).formatToParts(agora);
-
-  const get = tipo => partes.find(p => p.type === tipo)?.value || "";
-
-  return {
-    data: `${get("day")}/${get("month")}/${get("year")}`,
-    hora: `${get("hour")}:${get("minute")}`
-  };
-}
-
-function escapeHtml(valor) {
-  return String(valor ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
-
-function badgeStatus(status) {
-  const classes = {
-    "Pendente": "badge-pendente",
-    "Pausado": "badge-pausado",
-    "Em execução": "badge-execucao",
-    "Concluído": "badge-concluido"
-  };
-  return `<span class="badge ${classes[status] || "badge-pausado"}">${escapeHtml(status)}</span>`;
-}
-
-function badgeUrgente(valor) {
-  return valor === "Sim"
-    ? '<span class="badge badge-urgente">🚨 SIM</span>'
-    : "Não";
-}
-
-function mostrarLoading(texto) {
-  document.querySelectorAll(".page-section").forEach(el => {
-    if (!el.classList.contains("hidden")) {
-      el.innerHTML = `<div class="card loading">${escapeHtml(texto)}</div>`;
-    }
-  });
-}
-
-function mostrarToast(texto, tipo = "info") {
-  const root = document.getElementById("modalRoot");
-  const div = document.createElement("div");
-  div.className = `alert alert-${tipo}`;
-  div.style.position = "fixed";
-  div.style.right = "20px";
-  div.style.bottom = "20px";
-  div.style.zIndex = "200";
-  div.style.maxWidth = "450px";
-  div.style.boxShadow = "0 4px 15px rgba(0,0,0,.15)";
-  div.innerHTML = escapeHtml(texto);
-  root.appendChild(div);
-  setTimeout(() => div.remove(), 4500);
-}
-
-function carregarLogo() {
-  // Coloque "logo.png" no mesmo diretório deste HTML para exibir o logo.
-  const img = document.getElementById("logoImg");
-  img.src = "logo.png";
-  img.onload = () => img.classList.remove("hidden");
-  img.onerror = () => img.classList.add("hidden");
-}
-
-/* ================================================================
-   CADASTRO - PÁGINA PRINCIPAL
-   ================================================================ */
-function renderCadastrar() {
-  const container = document.getElementById("page-cadastrar");
-
-  // Busca as 5 últimas OS não concluídas
-  const naoConcluidas = dados
-    .filter(x => x.status !== "Concluído")
-    .sort((a, b) => b.id - a.id)
-    .slice(0, 5);
-
-  let ultimasOSHtml = '';
-  if (naoConcluidas.length > 0) {
-    ultimasOSHtml = `
-      <div class="ultimas-os">
-        <h4>📋 Últimas OS em aberto</h4>
-        ${naoConcluidas.map(os => `
-          <div class="os-item">
-            <span class="os-id">#${os.id}</span>
-            <span class="os-desc">${escapeHtml(os.descricao)}</span>
-            <span class="os-status">${badgeStatus(os.status)}</span>
+      <div class="p-6 overflow-y-auto flex-1 space-y-4 text-sm">
+        <div class="p-4 rounded-xl bg-zinc-50 border border-zinc-200 space-y-2">
+          <span class="text-xs font-semibold text-zinc-500 block">Descrição do Chamado</span>
+          <p id="modalOSDescricao" class="font-medium text-zinc-800 text-base">Carregando...</p>
+          <div class="grid grid-cols-2 gap-2 text-xs text-zinc-600 pt-2 border-t border-zinc-200">
+            <div>Solicitante: <strong id="modalOSSolicitante">--</strong></div>
+            <div>Local: <strong id="modalOSLocal">--</strong></div>
+            <div>Abertura: <strong id="modalOSDataAbertura">--</strong></div>
+            <div>Conclusão: <strong id="modalOSDataConclusao">Em Aberto</strong></div>
           </div>
-        `).join("")}
-      </div>
-    `;
-  } else {
-    ultimasOSHtml = `
-      <div class="ultimas-os">
-        <h4>📋 Últimas OS em aberto</h4>
-        <div class="empty" style="padding: 15px;">Nenhuma OS em aberto no momento.</div>
-      </div>
-    `;
-  }
+        </div>
 
-  container.innerHTML = `
-    <div class="card">
-      <h2>📝 Cadastrar Ordem de Serviço</h2>
+        <form id="formModalEditarOS" class="space-y-4">
+          <input type="hidden" id="modalOSIdInput">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1.5">Status Operacional *</label>
+              <select id="modalOSSelectStatus" class="w-full px-3 py-2.5 rounded-xl border border-zinc-300 font-medium text-zinc-800 focus:ring-2 focus:ring-red-500 outline-none">
+                <option value="Pendente">Pendente</option>
+                <option value="Em execução">Em execução</option>
+                <option value="Pausado">Pausado</option>
+                <option value="Concluído">Concluído</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1.5">Tipo / Especialidade</label>
+              <select id="modalOSSelectTipo" class="w-full px-3 py-2.5 rounded-xl border border-zinc-300 font-medium text-zinc-800 focus:ring-2 focus:ring-red-500 outline-none">
+                <option value="">Selecione</option>
+                <option value="Elétrica">Elétrica</option>
+                <option value="Mecânica">Mecânica</option>
+                <option value="Refrigeração">Refrigeração</option>
+                <option value="Hidráulica">Hidráulica</option>
+                <option value="Civil">Civil</option>
+                <option value="Instalação">Instalação</option>
+                <option value="Outros">Outros</option>
+              </select>
+            </div>
+          </div>
 
-      <form id="formCadastro">
-        <div class="grid">
-          <div class="field">
-            <label>Descrição da atividade*</label>
-            <textarea id="cadDescricao" required></textarea>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1.5">Executante Principal</label>
+              <select id="modalOSSelectExec1" class="w-full px-3 py-2.5 rounded-xl border border-zinc-300 font-medium text-zinc-800 focus:ring-2 focus:ring-red-500 outline-none">
+                <option value="">Selecione o Técnico</option>
+                <option value="Guilherme">Guilherme</option>
+                <option value="Ismael">Ismael</option>
+                <option value="Robson">Robson</option>
+                <option value="Técnico Externo">Técnico Externo</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1.5">Executante Auxiliar</label>
+              <select id="modalOSSelectExec2" class="w-full px-3 py-2.5 rounded-xl border border-zinc-300 font-medium text-zinc-800 focus:ring-2 focus:ring-red-500 outline-none">
+                <option value="">Nenhum</option>
+                <option value="Guilherme">Guilherme</option>
+                <option value="Ismael">Ismael</option>
+                <option value="Robson">Robson</option>
+                <option value="Técnico Externo">Técnico Externo</option>
+              </select>
+            </div>
           </div>
 
           <div>
-            <div class="field">
-              <label>Solicitante*</label>
-              <input id="cadSolicitante" required>
-            </div>
-
-            <div class="field">
-              <label>Local*</label>
-              <input id="cadLocal" required>
-            </div>
-
-            <label class="checkbox-line">
-              <input type="checkbox" id="cadUrgente">
-              Urgente
-            </label>
+            <label class="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1.5">Observações Técnicas / Peças</label>
+            <textarea id="modalOSTextObservacoes" rows="3" placeholder="Relatório das peças ou procedimentos executados..." class="w-full px-3 py-2.5 rounded-xl border border-zinc-300 text-zinc-800 outline-none focus:ring-2 focus:ring-red-500 text-sm resize-y"></textarea>
           </div>
-        </div>
 
-        <button class="btn-primary" type="submit">Cadastrar OS</button>
-      </form>
-
-      ${ultimasOSHtml}
-    </div>
-  `;
-
-  document.getElementById("formCadastro").addEventListener("submit", async e => {
-    e.preventDefault();
-
-    const descricao = document.getElementById("cadDescricao").value.trim();
-    const solicitante = document.getElementById("cadSolicitante").value.trim();
-    const local = document.getElementById("cadLocal").value.trim();
-    const urgente = document.getElementById("cadUrgente").checked;
-
-    if (!descricao || !solicitante || !local) {
-      mostrarToast("Preencha todos os campos obrigatórios (*).", "danger");
-      return;
-    }
-
-    const agora = agoraBrasil();
-
-    const novaOS = {
-      descricao: descricao,
-      data: agora.data,
-      hora_abertura: agora.hora,
-      solicitante: solicitante,
-      local: local,
-      tipo: "",
-      status: "Pendente",
-      data_conclusao: "",
-      hora_conclusao: "",
-      executante1: "",
-      executante2: "",
-      urgente: urgente ? "Sim" : "Não",
-      observacoes: ""
-    };
-
-    const ok = await inserirOS(novaOS);
-
-    if (ok) {
-      mostrarToast("Ordem cadastrada com sucesso!", "success");
-      document.getElementById("formCadastro").reset();
-      renderCadastrar();
-    }
-  });
-}
-
-/* ================================================================
-   DASHBOARD - TODOS OS GRÁFICOS EM PIZZA (DOUGHNUT)
-   ================================================================ */
-function renderDashboard() {
-  const container = document.getElementById("page-dashboard");
-
-  container.innerHTML = `
-    <div class="card">
-      <h2>📊 Dashboard Analítico</h2>
-      <div class="alert alert-info">Todos os gráficos são exibidos no formato pizza (doughnut).</div>
-
-      <div class="tabs">
-        <button class="tab active" data-tab="tipos">🔧 Tipos</button>
-        <button class="tab" data-tab="executantes">👥 Executantes</button>
-        <button class="tab" data-tab="status">📈 Status</button>
-      </div>
-
-      <div id="dashboardTipos">
-        <h3>Distribuição por Tipo de Manutenção</h3>
-        <div class="chart-box"><canvas id="chartTipoCanvas"></canvas></div>
-      </div>
-
-      <div id="dashboardExecutantes" class="hidden">
-        <h3>OS por Executantes</h3>
-        <div class="grid">
-          <div class="field">
-            <label>Período</label>
-            <select id="periodoDashboard">
-              <option value="Todos">Todos</option>
-              <option value="Por Mês/Ano">Por Mês/Ano</option>
-            </select>
+          <div class="pt-3 border-t border-zinc-200 flex items-center justify-end gap-2">
+            <button type="button" onclick="fecharModalDetalhe()" class="px-4 py-2 text-zinc-700 hover:bg-zinc-100 rounded-xl font-medium text-xs">Cancelar</button>
+            <button type="submit" class="px-5 py-2 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white rounded-xl font-semibold text-xs transition-colors shadow-sm">Salvar Alterações</button>
           </div>
-          <div id="filtrosDataDashboard" class="hidden">
-            <div class="grid">
-              <div class="field">
-                <label>Mês</label>
-                <select id="mesDashboard">
-                  ${Array.from({length:12}, (_,i) =>
-                    `<option value="${i+1}" ${i+1===dashboardMes ? "selected" : ""}>${String(i+1).padStart(2,"0")}</option>`
-                  ).join("")}
-                </select>
-              </div>
-              <div class="field">
-                <label>Ano</label>
-                <select id="anoDashboard">
-                  ${Array.from({length:7}, (_,i) => 2024+i)
-                    .map(ano => `<option ${ano===dashboardAno ? "selected" : ""}>${ano}</option>`).join("")}
-                </select>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="chart-box"><canvas id="chartExecutantesCanvas"></canvas></div>
-      </div>
-
-      <div id="dashboardStatus" class="hidden">
-        <h3>Distribuição por Status</h3>
-        <div class="chart-box"><canvas id="chartStatusCanvas"></canvas></div>
-      </div>
-    </div>
-  `;
-
-  document.querySelectorAll("#page-dashboard .tab").forEach(tab => {
-    tab.addEventListener("click", () => {
-      document.querySelectorAll("#page-dashboard .tab").forEach(t => t.classList.remove("active"));
-      tab.classList.add("active");
-
-      document.getElementById("dashboardTipos").classList.toggle("hidden", tab.dataset.tab !== "tipos");
-      document.getElementById("dashboardExecutantes").classList.toggle("hidden", tab.dataset.tab !== "executantes");
-      document.getElementById("dashboardStatus").classList.toggle("hidden", tab.dataset.tab !== "status");
-
-      if (tab.dataset.tab === "tipos") desenharGraficoTipos();
-      if (tab.dataset.tab === "executantes") desenharGraficoExecutantes();
-      if (tab.dataset.tab === "status") desenharGraficoStatus();
-    });
-  });
-
-  document.getElementById("periodoDashboard").addEventListener("change", e => {
-    dashboardPeriodo = e.target.value;
-    document.getElementById("filtrosDataDashboard").classList.toggle("hidden", dashboardPeriodo !== "Por Mês/Ano");
-    desenharGraficoExecutantes();
-  });
-
-  document.getElementById("mesDashboard").addEventListener("change", e => {
-    dashboardMes = Number(e.target.value);
-    desenharGraficoExecutantes();
-  });
-
-  document.getElementById("anoDashboard").addEventListener("change", e => {
-    dashboardAno = Number(e.target.value);
-    desenharGraficoExecutantes();
-  });
-
-  desenharGraficoTipos();
-  desenharGraficoExecutantes();
-  desenharGraficoStatus();
-}
-
-function contar(lista, campo) {
-  const mapa = {};
-  lista.forEach(x => {
-    const valor = String(x[campo] || "").trim();
-    if (valor) mapa[valor] = (mapa[valor] || 0) + 1;
-  });
-  return mapa;
-}
-
-// Gráfico de Tipos - Doughnut (pizza)
-function desenharGraficoTipos() {
-  if (!window.Chart) return;
-
-  const mapa = contar(dados, "tipo");
-  const labels = Object.keys(mapa);
-  const values = Object.values(mapa);
-
-  if (chartTipo) chartTipo.destroy();
-
-  chartTipo = new Chart(document.getElementById("chartTipoCanvas"), {
-    type: "doughnut",
-    data: { 
-      labels: labels.length ? labels : ["Sem dados"], 
-      datasets: [{ 
-        data: labels.length ? values : [1],
-        backgroundColor: [
-          '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40',
-          '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'
-        ]
-      }] 
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { position: 'right' },
-        tooltip: {
-          callbacks: {
-            label: function(context) {
-              let label = context.label || '';
-              let value = context.parsed || 0;
-              let total = context.dataset.data.reduce((a, b) => a + b, 0);
-              let percentage = total > 0 ? Math.round((value / total) * 100) : 0;
-              return label + ': ' + value + ' (' + percentage + '%)';
-            }
-          }
-        }
-      }
-    }
-  });
-}
-
-function parseDataBR(valor) {
-  if (!valor || typeof valor !== "string") return null;
-  const p = valor.split("/");
-  if (p.length !== 3) return null;
-  const d = Number(p[0]), m = Number(p[1]), y = Number(p[2]);
-  const data = new Date(y, m - 1, d);
-  if (Number.isNaN(data.getTime())) return null;
-  return data;
-}
-
-// Gráfico de Executantes - CORRIGIDO: Ignora "nan" e valores vazios
-function desenharGraficoExecutantes() {
-  if (!window.Chart) return;
-
-  let lista = dados.filter(x => x.status === "Concluído");
-
-  if (dashboardPeriodo === "Por Mês/Ano") {
-    lista = lista.filter(x => {
-      const data = parseDataBR(x.data_conclusao);
-      return data &&
-        data.getMonth() + 1 === dashboardMes &&
-        data.getFullYear() === dashboardAno;
-    });
-  }
-
-  const nomes = [];
-  lista.forEach(x => {
-    // Ignora "nan" e valores vazios
-    if (x.executante1 && x.executante1.toLowerCase() !== "nan" && x.executante1.trim() !== "") {
-      nomes.push(x.executante1);
-    }
-    if (x.executante2 && x.executante2.toLowerCase() !== "nan" && x.executante2.trim() !== "") {
-      nomes.push(x.executante2);
-    }
-  });
-
-  const mapa = {};
-  nomes.forEach(nome => mapa[nome] = (mapa[nome] || 0) + 1);
-  const labels = Object.keys(mapa);
-  const values = Object.values(mapa);
-
-  if (chartExecutantes) chartExecutantes.destroy();
-
-  // Se não houver dados, mostra mensagem
-  if (!labels.length) {
-    chartExecutantes = new Chart(document.getElementById("chartExecutantesCanvas"), {
-      type: "doughnut",
-      data: { 
-        labels: ["Sem dados"], 
-        datasets: [{ 
-          data: [1],
-          backgroundColor: ['#e0e0e0']
-        }] 
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { position: 'right' },
-          tooltip: {
-            callbacks: {
-              label: function() {
-                return 'Nenhum executante encontrado';
-              }
-            }
-          }
-        }
-      }
-    });
-    if (!nomes.length) {
-      mostrarToast("Nenhuma OS concluída encontrada para o período selecionado.", "info");
-    }
-    return;
-  }
-
-  chartExecutantes = new Chart(document.getElementById("chartExecutantesCanvas"), {
-    type: "doughnut",
-    data: { 
-      labels: labels, 
-      datasets: [{ 
-        data: values,
-        backgroundColor: [
-          '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40',
-          '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'
-        ]
-      }] 
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { position: 'right' },
-        tooltip: {
-          callbacks: {
-            label: function(context) {
-              let label = context.label || '';
-              let value = context.parsed || 0;
-              let total = context.dataset.data.reduce((a, b) => a + b, 0);
-              let percentage = total > 0 ? Math.round((value / total) * 100) : 0;
-              return label + ': ' + value + ' (' + percentage + '%)';
-            }
-          }
-        }
-      }
-    }
-  });
-}
-
-// Gráfico de Status - CORRIGIDO: Mostra todos os status mesmo com diferenças grandes
-function desenharGraficoStatus() {
-  if (!window.Chart) return;
-
-  const mapa = contar(dados, "status");
-  const labels = Object.keys(mapa);
-  const values = Object.values(mapa);
-
-  if (chartStatus) chartStatus.destroy();
-
-  // Se não houver dados, mostra mensagem
-  if (!labels.length) {
-    chartStatus = new Chart(document.getElementById("chartStatusCanvas"), {
-      type: "bar",
-      data: { 
-        labels: ["Sem dados"], 
-        datasets: [{ 
-          data: [1],
-          backgroundColor: ['#e0e0e0']
-        }] 
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            callbacks: {
-              label: function() {
-                return 'Nenhum status encontrado';
-              }
-            }
-          }
-        },
-        scales: { 
-          y: { 
-            beginAtZero: true, 
-            ticks: { precision: 0 } 
-          } 
-        }
-      }
-    });
-    return;
-  }
-
-  // Cores para cada status
-  const coresStatus = {
-    "Pendente": '#FFCE56',
-    "Pausado": '#36A2EB',
-    "Em execução": '#4BC0C0',
-    "Concluído": '#66BB6A'
-  };
-
-  // Verifica se há valores muito pequenos (menos de 1% do total)
-  const total = values.reduce((a, b) => a + b, 0);
-  const temValorPequeno = values.some(v => (v / total) < 0.02 && v > 0);
-
-  // Escolhe o tipo de gráfico baseado nos dados
-  const tipoGrafico = temValorPequeno && labels.length > 2 ? 'bar' : 'doughnut';
-
-  // Se tem valores pequenos, usa barra com porcentagem nas barras
-  if (tipoGrafico === 'bar') {
-    chartStatus = new Chart(document.getElementById("chartStatusCanvas"), {
-      type: "bar",
-      data: {
-        labels: labels,
-        datasets: [{
-          label: "Quantidade de OS",
-          data: values,
-          backgroundColor: labels.map(l => coresStatus[l] || '#999'),
-          borderColor: labels.map(l => coresStatus[l] || '#999'),
-          borderWidth: 1
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            callbacks: {
-              label: function(context) {
-                let value = context.parsed.y || 0;
-                let total = context.dataset.data.reduce((a, b) => a + b, 0);
-                let percentage = total > 0 ? Math.round((value / total) * 100) : 0;
-                return value + ' OS (' + percentage + '%)';
-              }
-            }
-          }
-        },
-        scales: {
-          y: {
-            beginAtZero: true,
-            ticks: { 
-              precision: 0,
-              callback: function(value) {
-                return value;
-              }
-            }
-          }
-        }
-      }
-    });
-  } else {
-    // Usa pizza (doughnut) quando os valores são mais equilibrados
-    chartStatus = new Chart(document.getElementById("chartStatusCanvas"), {
-      type: "doughnut",
-      data: {
-        labels: labels,
-        datasets: [{
-          data: values,
-          backgroundColor: labels.map(l => coresStatus[l] || '#999'),
-          borderWidth: 2
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { position: 'right' },
-          tooltip: {
-            callbacks: {
-              label: function(context) {
-                let label = context.label || '';
-                let value = context.parsed || 0;
-                let total = context.dataset.data.reduce((a, b) => a + b, 0);
-                let percentage = total > 0 ? Math.round((value / total) * 100) : 0;
-                return label + ': ' + value + ' (' + percentage + '%)';
-              }
-            }
-          }
-        }
-      }
-    });
-  }
-}
-
-/* ================================================================
-   SUPERVISÃO - COM BUSCA E EXCLUSÃO INTEGRADAS
-   ================================================================ */
-function renderSupervisao() {
-  const container = document.getElementById("page-supervisao");
-
-  if (!autenticado) {
-    container.innerHTML = `
-      <div class="card" style="max-width:500px">
-        <h2>🔐 Área de Supervisão</h2>
-        <form id="formLogin">
-          <div class="field">
-            <label>Digite a senha de supervisão:</label>
-            <input type="password" id="senhaSupervisao" required>
-          </div>
-          <button class="btn-primary">Entrar</button>
         </form>
       </div>
-    `;
-
-    document.getElementById("formLogin").addEventListener("submit", e => {
-      e.preventDefault();
-      const senha = document.getElementById("senhaSupervisao").value;
-
-      if (senha === SENHA_SUPERVISAO) {
-        autenticado = true;
-        renderSupervisao();
-      } else {
-        mostrarToast("Senha incorreta!", "danger");
-      }
-    });
-    return;
-  }
-
-  container.innerHTML = `
-    <div class="card">
-      <div class="alert alert-success">Acesso autorizado à área de supervisão.</div>
-
-      <div class="tabs">
-        <button class="tab active" data-super="buscar">🔍 Buscar OS</button>
-        <button class="tab" data-super="atualizar">🔄 Atualizar OS</button>
-        <button class="tab" data-super="backups">💾 Gerenciar Backups</button>
-      </div>
-
-      <div id="superBuscar"></div>
-      <div id="superAtualizar" class="hidden"></div>
-      <div id="superBackups" class="hidden"></div>
     </div>
-  `;
+  </div>
 
-  document.querySelectorAll("#page-supervisao [data-super]").forEach(btn => {
-    btn.addEventListener("click", () => {
-      document.querySelectorAll("#page-supervisao [data-super]").forEach(x => x.classList.remove("active"));
-      btn.classList.add("active");
-
-      document.getElementById("superBuscar").classList.toggle("hidden", btn.dataset.super !== "buscar");
-      document.getElementById("superAtualizar").classList.toggle("hidden", btn.dataset.super !== "atualizar");
-      document.getElementById("superBackups").classList.toggle("hidden", btn.dataset.super !== "backups");
-
-      if (btn.dataset.super === "buscar") renderSuperBuscar();
-      if (btn.dataset.super === "atualizar") renderSuperAtualizar();
-      if (btn.dataset.super === "backups") renderBackups();
-    });
-  });
-
-  renderSuperBuscar();
-}
-
-/* ================================================================
-   SUPER BUSCAR - Busca e Exclusão dentro da Supervisão
-   ================================================================ */
-function renderSuperBuscar() {
-  const container = document.getElementById("superBuscar");
-
-  container.innerHTML = `
-    <div>
-      <h3>🔍 Busca Avançada de OS</h3>
-      <div class="alert alert-info">Encontre ordens de serviço e exclua-as com segurança.</div>
-
-      <div class="grid">
-        <div class="field">
-          <label>Critério de busca</label>
-          <select id="criterioBuscaSuper">
-            <option value="status">Status</option>
-            <option value="id">ID</option>
-            <option value="solicitante">Solicitante</option>
-            <option value="local">Local</option>
-            <option value="tipo">Tipo</option>
-            <option value="executante1">Executante1</option>
-            <option value="executante2">Executante2</option>
-            <option value="observacoes">Observações</option>
-          </select>
+  <!-- MODAL: FICHA DE IMPRESSÃO (A4 OFICIAL) -->
+  <div id="modalFichaImpressao" class="fixed inset-0 z-50 bg-black/70 hidden items-center justify-center p-3 sm:p-6 overflow-y-auto backdrop-blur-xs">
+    <div class="bg-white text-zinc-900 rounded-2xl shadow-2xl max-w-3xl w-full max-h-[92vh] flex flex-col border border-zinc-200 printable-card">
+      <div class="no-print flex items-center justify-between px-6 py-4 border-b border-zinc-200 bg-zinc-50 rounded-t-2xl">
+        <div class="flex items-center gap-2">
+          <i data-lucide="printer" class="w-5 h-5 text-red-600"></i>
+          <h3 class="font-bold text-zinc-800 text-lg">Ficha de Ordem de Serviço King &amp; Joe</h3>
         </div>
-
-        <div class="field">
-          <label id="labelBuscaSuper">Selecione o status</label>
-          <div id="campoBuscaSuper"></div>
+        <div class="flex items-center gap-2">
+          <button onclick="window.print()" class="flex items-center gap-1.5 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-colors shadow-sm">
+            <i data-lucide="printer" class="w-4 h-4"></i>
+            <span>Imprimir Ficha</span>
+          </button>
+          <button onclick="fecharModalFicha()" class="p-2 text-zinc-500 hover:text-zinc-800 hover:bg-zinc-200 rounded-xl">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
         </div>
       </div>
 
-      <div id="resultadoBuscaSuper"></div>
-    </div>
-  `;
-
-  document.getElementById("criterioBuscaSuper").addEventListener("change", atualizarCampoBuscaSuper);
-  atualizarCampoBuscaSuper();
-}
-
-function atualizarCampoBuscaSuper() {
-  const criterio = document.getElementById("criterioBuscaSuper").value;
-  const campo = document.getElementById("campoBuscaSuper");
-  const label = document.getElementById("labelBuscaSuper");
-
-  if (criterio === "status") {
-    label.textContent = "Selecione o status";
-    campo.innerHTML = `
-      <select id="valorBuscaSuper">
-        ${STATUS_OPCOES.map(x => `<option>${escapeHtml(x)}</option>`).join("")}
-      </select>`;
-  } else if (criterio === "tipo") {
-    label.textContent = "Selecione o tipo";
-    campo.innerHTML = `
-      <select id="valorBuscaSuper">
-        ${TIPOS_MANUTENCAO.map(x => `<option>${escapeHtml(x)}</option>`).join("")}
-      </select>`;
-  } else if (criterio === "id") {
-    label.textContent = "Digite o ID da OS";
-    campo.innerHTML = `<input type="number" id="valorBuscaSuper" min="1">`;
-  } else {
-    label.textContent = "Digite o texto para busca";
-    campo.innerHTML = `<input type="text" id="valorBuscaSuper" placeholder="Digite o ${criterio}">`;
-  }
-
-  document.getElementById("valorBuscaSuper").addEventListener("input", executarBuscaSuper);
-  executarBuscaSuper();
-}
-
-function executarBuscaSuper() {
-  const criterio = document.getElementById("criterioBuscaSuper")?.value;
-  const valor = document.getElementById("valorBuscaSuper")?.value ?? "";
-  const destino = document.getElementById("resultadoBuscaSuper");
-
-  if (!destino) return;
-
-  let resultado = [];
-
-  if (criterio === "id") {
-    const id = Number(valor);
-    if (!id) {
-      destino.innerHTML = "";
-      return;
-    }
-    resultado = dados.filter(x => x.id === id);
-  } else {
-    resultado = dados.filter(x => {
-      const campo = String(x[criterio] ?? "");
-      return campo.toLowerCase().includes(String(valor).toLowerCase());
-    });
-  }
-
-  if (!valor) {
-    destino.innerHTML = "";
-    return;
-  }
-
-  destino.innerHTML = `
-    <div class="alert ${resultado.length ? "alert-success" : "alert-warning"}">
-      ${resultado.length
-        ? `Encontradas ${resultado.length} OS:`
-        : "Nenhuma OS encontrada com os critérios informados."}
-    </div>
-    ${resultado.length ? tabelaOSComExclusaoSuper(resultado) : ""}
-  `;
-}
-
-function tabelaOSComExclusaoSuper(lista) {
-  if (!lista.length) {
-    return `<div class="empty">Nenhuma ordem de serviço encontrada.</div>`;
-  }
-
-  return `
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Ações</th>
-            <th>ID</th>
-            <th>Descrição</th>
-            <th>Data</th>
-            <th>Hora Abertura</th>
-            <th>Solicitante</th>
-            <th>Local</th>
-            <th>Tipo</th>
-            <th>Status</th>
-            <th>Data Conclusão</th>
-            <th>Hora Conclusão</th>
-            <th>Executante 1</th>
-            <th>Executante 2</th>
-            <th>Urgente</th>
-            <th>Observações</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${lista.map(os => `
-            <tr>
-              <td>
-                <button class="btn-danger btn-sm" onclick="excluirOS(${os.id})" title="Excluir OS #${os.id}">
-                  🗑️ Excluir
-                </button>
-              </td>
-              <td><strong>${escapeHtml(os.id)}</strong></td>
-              <td>${escapeHtml(os.descricao)}</td>
-              <td>${escapeHtml(os.data)}</td>
-              <td>${escapeHtml(os.hora_abertura)}</td>
-              <td>${escapeHtml(os.solicitante)}</td>
-              <td>${escapeHtml(os.local)}</td>
-              <td>${escapeHtml(os.tipo)}</td>
-              <td>${badgeStatus(os.status)}</td>
-              <td>${escapeHtml(os.data_conclusao)}</td>
-              <td>${escapeHtml(os.hora_conclusao)}</td>
-              <td>${escapeHtml(os.executante1)}</td>
-              <td>${escapeHtml(os.executante2)}</td>
-              <td>${badgeUrgente(os.urgente)}</td>
-              <td>${escapeHtml(os.observacoes)}</td>
-            </tr>
-          `).join("")}
-        </tbody>
-      </table>
-    </div>
-  `;
-}
-
-/* ================================================================
-   SUPER ATUALIZAR
-   ================================================================ */
-function renderSuperAtualizar() {
-  const container = document.getElementById("superAtualizar");
-
-  const naoConcluidas = dados
-    .filter(x => x.status !== "Concluído")
-    .sort((a,b) => b.id - a.id);
-
-  if (!naoConcluidas.length) {
-    container.innerHTML = `<div class="alert alert-warning">Nenhuma OS pendente para atualizar.</div>`;
-    return;
-  }
-
-  container.innerHTML = `
-    <h3>🔄 Atualizar Ordem de Serviço</h3>
-
-    <div class="field">
-      <label>Selecione a OS</label>
-      <select id="osSelecionadaSuper">
-        ${naoConcluidas.map(os =>
-          `<option value="${os.id}">ID ${os.id} - ${escapeHtml(os.descricao)}</option>`
-        ).join("")}
-      </select>
-    </div>
-
-    <div id="formAtualizacaoSuper"></div>
-  `;
-
-  document.getElementById("osSelecionadaSuper").addEventListener("change", montarFormularioAtualizacaoSuper);
-  montarFormularioAtualizacaoSuper();
-}
-
-function montarFormularioAtualizacaoSuper() {
-  const id = Number(document.getElementById("osSelecionadaSuper").value);
-  const os = dados.find(x => x.id === id);
-  const container = document.getElementById("formAtualizacaoSuper");
-
-  if (!os) return;
-
-  container.innerHTML = `
-    <div class="alert alert-info">
-      <strong>Descrição:</strong> ${escapeHtml(os.descricao)}<br>
-      <strong>Solicitante:</strong> ${escapeHtml(os.solicitante)}<br>
-      <strong>Local:</strong> ${escapeHtml(os.local)}
-    </div>
-
-    <form id="formAtualizacaoOSSuper">
-      <div class="grid">
-        <div>
-          <div class="field">
-            <label>Tipo de Serviço</label>
-            <select id="updTipoSuper">
-              <option value=""> </option>
-              ${TIPOS_MANUTENCAO.map(x =>
-                `<option ${x === os.tipo ? "selected" : ""}>${escapeHtml(x)}</option>`
-              ).join("")}
-            </select>
-          </div>
-
-          <div class="field">
-            <label>Status*</label>
-            <select id="updStatusSuper">
-              ${STATUS_OPCOES.map(x =>
-                `<option ${x === os.status ? "selected" : ""}>${escapeHtml(x)}</option>`
-              ).join("")}
-            </select>
-          </div>
-
-          <div class="field">
-            <label>Executante Principal*</label>
-            <select id="updExecutante1Super">
-              <option value="">Selecione</option>
-              ${EXECUTANTES_PREDEFINIDOS.map(x =>
-                `<option ${x === os.executante1 ? "selected" : ""}>${escapeHtml(x)}</option>`
-              ).join("")}
-            </select>
-          </div>
-        </div>
-
-        <div>
-          <div class="field">
-            <label>Executante Secundário (opcional)</label>
-            <select id="updExecutante2Super">
-              <option value=""> </option>
-              ${EXECUTANTES_PREDEFINIDOS.map(x =>
-                `<option ${x === os.executante2 ? "selected" : ""}>${escapeHtml(x)}</option>`
-              ).join("")}
-            </select>
-          </div>
-
-          <div class="field">
-            <label>Data de conclusão</label>
-            <input value="${escapeHtml(os.data_conclusao)}" disabled id="dataConclusaoPreviewSuper">
-          </div>
-
-          <div class="field">
-            <label>Hora de conclusão</label>
-            <input value="${escapeHtml(os.hora_conclusao)}" disabled id="horaConclusaoPreviewSuper">
-          </div>
-        </div>
-      </div>
-
-      <div class="field">
-        <label>Observações</label>
-        <textarea id="updObservacoesSuper">${escapeHtml(os.observacoes)}</textarea>
-      </div>
-
-      <button class="btn-primary" type="submit">Atualizar OS</button>
-    </form>
-  `;
-
-  document.getElementById("updStatusSuper").addEventListener("change", atualizarPreviewConclusaoSuper);
-
-  document.getElementById("formAtualizacaoOSSuper").addEventListener("submit", async e => {
-    e.preventDefault();
-
-    const tipo = document.getElementById("updTipoSuper").value;
-    const status = document.getElementById("updStatusSuper").value;
-    const executante1 = document.getElementById("updExecutante1Super").value;
-    const executante2 = document.getElementById("updExecutante2Super").value;
-    const observacoes = document.getElementById("updObservacoesSuper").value.trim();
-
-    if ((status === "Em execução" || status === "Concluído") && !executante1) {
-      mostrarToast("Selecione pelo menos um executante principal para este status!", "danger");
-      return;
-    }
-
-    const alteracoes = {
-      tipo,
-      status,
-      executante1,
-      executante2,
-      observacoes
-    };
-
-    if (status === "Concluído") {
-      const agora = agoraBrasil();
-      alteracoes.data_conclusao = agora.data;
-      alteracoes.hora_conclusao = agora.hora;
-    } else {
-      alteracoes.data_conclusao = "";
-      alteracoes.hora_conclusao = "";
-    }
-
-    const ok = await atualizarOSNoBanco(id, alteracoes);
-
-    if (ok) {
-      mostrarToast("OS atualizada com sucesso!", "success");
-      renderSuperAtualizar();
-    }
-  });
-}
-
-function atualizarPreviewConclusaoSuper() {
-  const status = document.getElementById("updStatusSuper").value;
-  const data = document.getElementById("dataConclusaoPreviewSuper");
-  const hora = document.getElementById("horaConclusaoPreviewSuper");
-
-  if (status === "Concluído") {
-    const agora = agoraBrasil();
-    data.value = agora.data;
-    hora.value = agora.hora;
-  } else {
-    data.value = "";
-    hora.value = "";
-  }
-}
-
-/* ================================================================
-   BACKUPS
-   ================================================================ */
-function chaveBackups() {
-  return "kingjoe_os_backups_v1";
-}
-
-function obterBackups() {
-  try {
-    return JSON.parse(localStorage.getItem(chaveBackups()) || "[]");
-  } catch {
-    return [];
-  }
-}
-
-function salvarBackups(lista) {
-  localStorage.setItem(chaveBackups(), JSON.stringify(lista));
-}
-
-function criarBackupLocal() {
-  const lista = obterBackups();
-  const agora = new Date();
-
-  const backup = {
-    nome: `ordens_servico_${formatarTimestamp(agora)}.json`,
-    data: agora.toISOString(),
-    dados: dados
-  };
-
-  lista.unshift(backup);
-  salvarBackups(lista.slice(0, 10));
-
-  baixarArquivo(
-    JSON.stringify(dados, null, 2),
-    backup.nome,
-    "application/json"
-  );
-
-  renderBackups();
-  mostrarToast("Backup criado e baixado com sucesso.", "success");
-}
-
-function formatarTimestamp(data) {
-  const pad = n => String(n).padStart(2, "0");
-  return `${data.getFullYear()}${pad(data.getMonth()+1)}${pad(data.getDate())}_${pad(data.getHours())}${pad(data.getMinutes())}${pad(data.getSeconds())}`;
-}
-
-function limparBackupsAntigos() {
-  const lista = obterBackups().slice(0, 10);
-  salvarBackups(lista);
-  renderBackups();
-  mostrarToast("Mantidos apenas os 10 backups mais recentes.", "success");
-}
-
-function restaurarBackup(indice) {
-  const lista = obterBackups();
-  const backup = lista[indice];
-
-  if (!backup) return;
-
-  if (!confirm(`Restaurar o backup "${backup.nome}"?\n\nIsso substituirá os dados atuais do Supabase.`)) {
-    return;
-  }
-
-  restaurarDadosNoSupabase(backup.dados);
-}
-
-async function restaurarDadosNoSupabase(registros) {
-  if (!supabaseClient) {
-    mostrarToast("Supabase não configurado.", "danger");
-    return;
-  }
-
-  try {
-    // Apaga os registros existentes.
-    const { error: deleteError } = await supabaseClient
-      .from(TABLE_NAME)
-      .delete()
-      .gte("id", 0);
-
-    if (deleteError) throw deleteError;
-
-    // Insere novamente o conteúdo do backup - sem enviar o ID
-    if (registros.length) {
-      const registrosLimpos = registros.map(x => {
-        const { id, ...resto } = x;
-        return {
-          descricao: resto.descricao || "",
-          data: resto.data || "",
-          hora_abertura: resto.hora_abertura || "",
-          solicitante: resto.solicitante || "",
-          local: resto.local || "",
-          tipo: resto.tipo || "",
-          status: resto.status || "Pendente",
-          data_conclusao: resto.data_conclusao || "",
-          hora_conclusao: resto.hora_conclusao || "",
-          executante1: resto.executante1 || "",
-          executante2: resto.executante2 || "",
-          urgente: resto.urgente || "Não",
-          observacoes: resto.observacoes || ""
-        };
-      });
-
-      const { error: insertError } = await supabaseClient
-        .from(TABLE_NAME)
-        .insert(registrosLimpos);
-
-      if (insertError) throw insertError;
-    }
-
-    await carregarDados();
-    renderBackups();
-    mostrarToast("Backup restaurado no Supabase com sucesso.", "success");
-  } catch (erro) {
-    console.error(erro);
-    mostrarToast("Erro ao restaurar backup: " + erro.message, "danger");
-  }
-}
-
-function baixarArquivo(conteudo, nome, tipo) {
-  const blob = new Blob([conteudo], { type: tipo });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = nome;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-}
-
-function exportarCSV() {
-  if (!dados.length) {
-    mostrarToast("Não existem dados para exportar.", "warning");
-    return;
-  }
-
-  const colunas = [
-    ["ID", "id"],
-    ["Descrição", "descricao"],
-    ["Data", "data"],
-    ["Hora Abertura", "hora_abertura"],
-    ["Solicitante", "solicitante"],
-    ["Local", "local"],
-    ["Tipo", "tipo"],
-    ["Status", "status"],
-    ["Data Conclusão", "data_conclusao"],
-    ["Hora Conclusão", "hora_conclusao"],
-    ["Executante1", "executante1"],
-    ["Executante2", "executante2"],
-    ["Urgente", "urgente"],
-    ["Observações", "observacoes"]
-  ];
-
-  const esc = valor => `"${String(valor ?? "").replace(/"/g, '""')}"`;
-
-  const linhas = [
-    colunas.map(x => esc(x[0])).join(";"),
-    ...dados.map(row => colunas.map(x => esc(row[x[1]])).join(";"))
-  ];
-
-  baixarArquivo(
-    "\ufeff" + linhas.join("\n"),
-    "ordens_servico.csv",
-    "text/csv;charset=utf-8"
-  );
-
-  mostrarToast("CSV exportado com sucesso.", "success");
-}
-
-function renderBackups() {
-  const container = document.getElementById("superBackups");
-  const lista = obterBackups();
-
-  container.innerHTML = `
-    <h3>💾 Gerenciamento de Backups</h3>
-
-    <div class="alert alert-info">
-      Nesta versão, o Supabase é o banco principal. Os backups locais ficam no navegador
-      e também podem ser baixados para o computador.
-    </div>
-
-    <div class="actions">
-      <button class="btn-primary" onclick="criarBackupLocal()">🔄 Criar Backup Agora</button>
-      <button class="btn-secondary" onclick="limparBackupsAntigos()">🧹 Limpar Backups Antigos</button>
-      <button class="btn-secondary" onclick="exportarCSV()">📥 Exportar CSV</button>
-    </div>
-
-    <hr>
-
-    <h4>Backups armazenados neste navegador</h4>
-    <div class="muted">Total: ${lista.length} | Limite: 10</div>
-
-    ${
-      lista.length
-      ? `<div class="table-wrap" style="margin-top:12px">
-          <table style="min-width:600px">
-            <thead><tr><th>Backup</th><th>Data</th><th>Ação</th></tr></thead>
-            <tbody>
-              ${lista.map((b,i) => `
-                <tr>
-                  <td>${escapeHtml(b.nome)}</td>
-                  <td>${new Date(b.data).toLocaleString("pt-BR")}</td>
-                  <td><button class="btn-warning" onclick="restaurarBackup(${i})">🔙 Restaurar</button></td>
-                </tr>
-              `).join("")}
-            </tbody>
-          </table>
-        </div>`
-      : `<div class="empty">Nenhum backup disponível.</div>`
-    }
-  `;
-}
-
-/* ================================================================
-   IMPORTAÇÃO DE DADOS ANTIGOS - CORRIGIDO
-   ================================================================ */
-function abrirImportacaoCSV() {
-  const root = document.getElementById("modalRoot");
-
-  root.innerHTML = `
-    <div class="modal">
-      <div class="modal-card">
-        <h3>📤 Importar CSV antigo</h3>
-        <p>Selecione o arquivo <strong>ordens_servico.csv</strong> da versão Python.</p>
-        <p><strong>ATENÇÃO:</strong> O ID será preservado do arquivo CSV. IDs duplicados serão ignorados.</p>
-        <p><strong>Limite:</strong> O sistema importa em lotes de 500 registros para maior estabilidade.</p>
-        <input type="file" id="arquivoCSV" accept=".csv,text/csv">
-        <div class="actions">
-          <button class="btn-primary" onclick="importarCSVSelecionado()">Importar</button>
-          <button class="btn-secondary" onclick="fecharModal()">Cancelar</button>
-        </div>
-        <div id="progressoImportacao">
-          <div class="progress-bar"><div class="fill" id="progressBarFill"></div></div>
-          <div id="progressoTexto">Aguardando arquivo...</div>
-          <div id="logImportacao" style="max-height:200px;overflow-y:auto;font-size:12px;margin-top:10px;background:#f5f5f5;padding:8px;border-radius:5px;"></div>
-        </div>
+      <div class="p-8 overflow-y-auto flex-1 bg-white text-zinc-900 font-sans" id="fichaImpressaoCorpo">
+        <!-- Injected by JS -->
       </div>
     </div>
-  `;
-}
+  </div>
 
-function fecharModal() {
-  document.getElementById("modalRoot").innerHTML = "";
-}
+  <!-- MODAL: CONFIRMAR EXCLUSÃO DEFINITIVA -->
+  <div id="modalConfirmarExclusao" class="fixed inset-0 z-50 bg-black/60 hidden items-center justify-center p-4 backdrop-blur-xs">
+    <div class="bg-white p-6 rounded-2xl max-w-md w-full border border-zinc-200 shadow-2xl space-y-4">
+      <div class="flex items-center gap-3 text-rose-600">
+        <div class="w-10 h-10 rounded-xl bg-rose-50 border border-rose-200 flex items-center justify-center">
+          <i data-lucide="alert-triangle" class="w-5 h-5"></i>
+        </div>
+        <h3 class="font-extrabold text-zinc-900 text-lg">Confirmar Exclusão de OS</h3>
+      </div>
+      <p id="textoConfirmacaoExclusao" class="text-xs text-zinc-700">Deseja realmente excluir esta ordem de serviço do Supabase?</p>
+      <div class="flex items-center justify-end gap-2 pt-2">
+        <button type="button" onclick="fecharModalExclusao()" class="px-4 py-2 text-zinc-600 hover:bg-zinc-100 rounded-xl text-xs font-semibold">Cancelar</button>
+        <button type="button" id="btnConfirmarExclusaoDefinitiva" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-colors shadow-sm">Sim, Excluir OS</button>
+      </div>
+    </div>
+  </div>
 
-function atualizarProgresso(percentual, texto) {
-  const fill = document.getElementById("progressBarFill");
-  const textoEl = document.getElementById("progressoTexto");
-  if (fill) fill.style.width = percentual + "%";
-  if (textoEl) textoEl.textContent = texto;
-}
+  <!-- MODAL: IMPORTAÇÃO DE CSV LEGADO -->
+  <div id="modalImportCSV" class="fixed inset-0 z-50 bg-black/65 hidden items-center justify-center p-4 backdrop-blur-xs">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 border border-zinc-200 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-zinc-100 pb-3">
+        <h3 class="font-bold text-zinc-900 text-base flex items-center gap-2">
+          <i data-lucide="upload-cloud" class="w-5 h-5 text-blue-600"></i>
+          <span>Importar CSV Antigo (Python/Streamlit)</span>
+        </h3>
+        <button onclick="fecharModalImportCSV()" class="text-zinc-400 hover:text-zinc-700 text-sm font-bold">✕</button>
+      </div>
+      <div class="text-xs text-zinc-600 space-y-1.5">
+        <p>Selecione o arquivo <code>ordens_servico.csv</code> da versão anterior.</p>
+        <p class="text-zinc-400">O sistema importará em lotes de 500 registros, tratando valores 'NaN' automaticamente.</p>
+      </div>
+      <input type="file" id="arquivoCSVUpload" accept=".csv,text/csv" class="w-full text-xs text-zinc-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-red-600 file:text-white hover:file:bg-red-700 cursor-pointer">
+      <div id="progressoImportBox" class="hidden space-y-1.5">
+        <div class="flex justify-between text-xs font-semibold text-zinc-700">
+          <span id="progressoImportTexto">Processando...</span>
+          <span id="progressoImportPct">0%</span>
+        </div>
+        <div class="w-full h-2 rounded-full bg-zinc-200 overflow-hidden">
+          <div id="progressoImportBar" class="h-full bg-red-600 transition-all duration-300" style="width: 0%"></div>
+        </div>
+      </div>
+      <div id="logImportBox" class="hidden bg-zinc-950 text-zinc-300 p-3 rounded-xl max-h-36 overflow-y-auto font-mono text-[11px] space-y-1"></div>
+      <div class="flex justify-end gap-2 pt-2 border-t border-zinc-100">
+        <button type="button" onclick="fecharModalImportCSV()" class="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 rounded-xl text-xs font-semibold">Fechar</button>
+      </div>
+    </div>
+  </div>
 
-function adicionarLog(mensagem, tipo = "info") {
-  const log = document.getElementById("logImportacao");
-  if (!log) return;
-  const cores = {
-    info: "#333",
-    success: "#16803c",
-    warning: "#b7791f",
-    error: "#c62828"
-  };
-  const div = document.createElement("div");
-  div.style.color = cores[tipo] || cores.info;
-  div.textContent = mensagem;
-  log.appendChild(div);
-  log.scrollTop = log.scrollHeight;
-}
+  <!-- APPLICATION LOGIC IN JAVASCRIPT (STANDALONE) -->
+  <script>
+    /* Supabase Credentials & Table constants */
+    const SUPABASE_URL = "https://tcfbgekwkejgywoyuppt.supabase.co";
+    const SUPABASE_ANON_KEY = "sb_publishable_dr1YdwfMQ5sp1Zjp0kOPKA_4djuJUab";
+    const TABLE_NAME = "ordens_servico";
+    const SENHA_SUPERVISAO = "king@2025";
 
-async function importarCSVSelecionado() {
-  const arquivo = document.getElementById("arquivoCSV").files[0];
+    let supabaseClient = null;
+    let ordens = [];
+    let supervisaoAutenticada = false;
+    let modoVisualizacao = 'kanban';
+    let filtroStatusPainel = 'todos';
+    let apenasUrgentesPainel = false;
+    let dashboardPeriodo = 'Todos';
+    let osIdParaExcluir = null;
 
-  if (!arquivo) {
-    mostrarToast("Selecione um arquivo CSV.", "warning");
-    return;
-  }
+    let chartTipos = null;
+    let chartExecutantes = null;
 
-  atualizarProgresso(0, "Lendo arquivo...");
-  adicionarLog("📖 Lendo arquivo CSV...", "info");
-
-  try {
-    const texto = await arquivo.text();
-    const linhas = parseCSV(texto);
-
-    if (!linhas.length) {
-      throw new Error("CSV vazio.");
-    }
-
-    adicionarLog(`📄 ${linhas.length} linhas encontradas no arquivo.`, "info");
-
-    const cab = linhas[0].map(x => x.trim());
-
-    const achar = (...nomes) => {
-      const idx = cab.findIndex(c => nomes.includes(c));
-      return idx;
-    };
-
-    const idx = {
-      id: achar("ID", "id"),
-      descricao: achar("Descrição", "descricao"),
-      data: achar("Data", "data"),
-      hora: achar("Hora Abertura", "hora_abertura"),
-      solicitante: achar("Solicitante", "solicitante"),
-      local: achar("Local", "local"),
-      tipo: achar("Tipo", "tipo"),
-      status: achar("Status", "status"),
-      dataConc: achar("Data Conclusão", "data_conclusao"),
-      horaConc: achar("Hora Conclusão", "hora_conclusao"),
-      exec1: achar("Executante1", "Executante 1", "executante1"),
-      exec2: achar("Executante2", "Executante 2", "executante2"),
-      urgente: achar("Urgente", "urgente"),
-      obs: achar("Observações", "Observacoes", "observacoes"),
-      executanteAntigo: achar("Executante")
-    };
-
-    const registros = [];
-    let linhasIgnoradas = 0;
-
-    for (let i = 1; i < linhas.length; i++) {
-      const r = linhas[i];
-      if (!r.length) continue;
-
-      const get = key => idx[key] >= 0 ? (r[idx[key]] || "").trim() : "";
-
-      let exec1 = get("exec1");
-      let exec2 = get("exec2");
-
-      if (!exec1 && idx.executanteAntigo >= 0) {
-        exec1 = get("executanteAntigo");
-      }
-
-      // Ignora registros sem ID ou descrição
-      const idStr = get("id");
-      if (!idStr || !get("descricao")) {
-        linhasIgnoradas++;
-        continue;
-      }
-
-      // Trata valores "nan" como vazio
-      const tratarNan = (valor) => {
-        if (!valor || valor.toLowerCase() === "nan" || valor === "NaN") return "";
-        return valor;
+    // Helper: Current time in America/Sao_Paulo (Brasília)
+    function agoraBrasil() {
+      const agora = new Date();
+      const partes = new Intl.DateTimeFormat('pt-BR', {
+        timeZone: 'America/Sao_Paulo',
+        day: '2-digit', month: '2-digit', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', hour12: false
+      }).formatToParts(agora);
+      const get = (tipo) => partes.find(p => p.type === tipo)?.value || '';
+      return {
+        data: `${get('day')}/${get('month')}/${get('year')}`,
+        hora: `${get('hour')}:${get('minute')}`
       };
+    }
 
-      // Formata data para garantir consistência
-      const formatarData = (data) => {
-        if (!data || data.toLowerCase() === "nan") return "";
-        // Tenta adicionar ano se estiver faltando
-        const partes = data.split("/");
-        if (partes.length === 2) {
-          // Data sem ano (ex: "19/7")
-          const anoAtual = new Date().getFullYear();
-          return `${partes[0]}/${partes[1]}/${anoAtual}`;
-        }
-        return data;
+    // Initialize Supabase & App
+    document.addEventListener('DOMContentLoaded', async () => {
+      lucide.createIcons();
+      inicializarRelogio();
+      inicializarSupabase();
+      await carregarDados();
+      configurarEventos();
+    });
+
+    function inicializarRelogio() {
+      const el = document.getElementById('liveClockDisplay');
+      const atualizar = () => {
+        const br = agoraBrasil();
+        if (el) el.textContent = `${br.data} — ${br.hora}`;
       };
-
-      registros.push({
-        id: Number(idStr),
-        descricao: tratarNan(get("descricao")),
-        data: formatarData(tratarNan(get("data"))),
-        hora_abertura: tratarNan(get("hora")),
-        solicitante: tratarNan(get("solicitante")),
-        local: tratarNan(get("local")),
-        tipo: tratarNan(get("tipo")),
-        status: tratarNan(get("status")) || "Pendente",
-        data_conclusao: formatarData(tratarNan(get("dataConc"))),
-        hora_conclusao: tratarNan(get("horaConc")),
-        executante1: tratarNan(exec1),
-        executante2: tratarNan(exec2),
-        urgente: tratarNan(get("urgente")) || "Não",
-        observacoes: tratarNan(get("obs"))
-      });
+      atualizar();
+      setInterval(atualizar, 10000);
     }
 
-    if (linhasIgnoradas > 0) {
-      adicionarLog(`⚠️ ${linhasIgnoradas} linhas ignoradas (sem ID ou descrição).`, "warning");
-    }
-
-    const validos = registros.filter(x => x.id && x.descricao);
-
-    if (!validos.length) {
-      throw new Error("Nenhum registro válido encontrado.");
-    }
-
-    adicionarLog(`✅ ${validos.length} registros válidos para importação.`, "success");
-
-    // Verifica IDs duplicados
-    const ids = validos.map(x => x.id);
-    const duplicados = ids.filter((id, index) => ids.indexOf(id) !== index);
-    if (duplicados.length > 0) {
-      adicionarLog(`⚠️ ${duplicados.length} IDs duplicados encontrados. Serão ignorados.`, "warning");
-    }
-
-    // Remove duplicados (mantém o primeiro)
-    const unicos = [];
-    const idsVistos = new Set();
-    for (const reg of validos) {
-      if (!idsVistos.has(reg.id)) {
-        idsVistos.add(reg.id);
-        unicos.push(reg);
+    function inicializarSupabase() {
+      try {
+        supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        // Subscribe to real-time changes
+        supabaseClient
+          .channel('ordens_servico_changes')
+          .on('postgres_changes', { event: '*', schema: 'public', table: TABLE_NAME }, () => {
+            carregarDados(false);
+          })
+          .subscribe();
+      } catch (err) {
+        console.error('Falha ao conectar no Supabase:', err);
       }
     }
 
-    if (unicos.length < validos.length) {
-      adicionarLog(`ℹ️ ${validos.length - unicos.length} registros duplicados removidos.`, "info");
-    }
-
-    atualizarProgresso(10, `Preparando ${unicos.length} registros para importação...`);
-
-    // Dividir em lotes de 500 registros (mais seguro)
-    const BATCH_SIZE = 500;
-    const totalBatches = Math.ceil(unicos.length / BATCH_SIZE);
-    let importados = 0;
-    let erros = [];
-    let totalProcessados = 0;
-
-    for (let batch = 0; batch < totalBatches; batch++) {
-      const inicio = batch * BATCH_SIZE;
-      const fim = Math.min(inicio + BATCH_SIZE, unicos.length);
-      const lote = unicos.slice(inicio, fim);
-
-      const percentual = 10 + (batch / totalBatches) * 80;
-      atualizarProgresso(percentual, `Importando lote ${batch + 1} de ${totalBatches} (${lote.length} registros)...`);
-      adicionarLog(`📤 Importando lote ${batch + 1}/${totalBatches} (${lote.length} registros)...`, "info");
+    async function carregarDados(mostrarCarregando = true) {
+      const statusBadge = document.getElementById('connectionStatusBadge');
+      if (mostrarCarregando && statusBadge) {
+        statusBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span><span>Carregando...</span>';
+      }
 
       try {
-        // Usar upsert com onConflict para evitar duplicatas
-        const { error } = await supabaseClient
-          .from(TABLE_NAME)
-          .upsert(lote, { onConflict: "id" });
+        let allData = [];
+        let page = 0;
+        const pageSize = 1000;
+        let hasMore = true;
 
-        if (error) {
-          adicionarLog(`❌ Erro no lote ${batch + 1}: ${error.message}`, "error");
-          
-          // Tenta inserir um por um para identificar qual deu problema
-          let sucessosLote = 0;
-          for (const reg of lote) {
-            try {
-              const { error: singleError } = await supabaseClient
-                .from(TABLE_NAME)
-                .upsert([reg], { onConflict: "id" });
-              if (singleError) {
-                erros.push(`ID ${reg.id}: ${singleError.message}`);
-              } else {
-                sucessosLote++;
-                importados++;
-              }
-            } catch (e) {
-              erros.push(`ID ${reg.id}: ${e.message}`);
-            }
-            totalProcessados++;
-            
-            // Atualiza progresso dentro do lote
-            const subProgresso = percentual + ((totalProcessados / unicos.length) * 10);
-            atualizarProgresso(Math.min(subProgresso, 95), `Processando registro ${totalProcessados} de ${unicos.length}...`);
+        while (hasMore) {
+          const from = page * pageSize;
+          const to = from + pageSize - 1;
+
+          const { data, error } = await supabaseClient
+            .from(TABLE_NAME)
+            .select('*')
+            .order('id', { ascending: false })
+            .range(from, to);
+
+          if (error) throw error;
+          if (data && data.length > 0) {
+            allData = allData.concat(data);
+            page++;
+            if (data.length < pageSize) hasMore = false;
+          } else {
+            hasMore = false;
           }
-          adicionarLog(`✅ ${sucessosLote} registros importados no lote ${batch + 1} (individualmente).`, "success");
-        } else {
-          importados += lote.length;
-          totalProcessados += lote.length;
-          adicionarLog(`✅ Lote ${batch + 1} importado com sucesso (${lote.length} registros).`, "success");
         }
-      } catch (e) {
-        erros.push(`Lote ${batch + 1}: ${e.message}`);
-        adicionarLog(`❌ Erro crítico no lote ${batch + 1}: ${e.message}`, "error");
+
+        ordens = allData.map(row => ({
+          id: Number(row.id),
+          descricao: String(row.descricao || ''),
+          data: String(row.data || ''),
+          hora_abertura: String(row.hora_abertura || ''),
+          solicitante: String(row.solicitante || ''),
+          local: String(row.local || ''),
+          tipo: String(row.tipo || 'Geral'),
+          status: String(row.status || 'Pendente'),
+          data_conclusao: String(row.data_conclusao || ''),
+          hora_conclusao: String(row.hora_conclusao || ''),
+          executante1: String(row.executante1 || ''),
+          executante2: String(row.executante2 || ''),
+          urgente: String(row.urgente === 'Sim' ? 'Sim' : 'Não'),
+          observacoes: String(row.observacoes || '')
+        }));
+
+        if (statusBadge) {
+          statusBadge.className = 'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border bg-emerald-950/40 text-emerald-300 border-emerald-800/60';
+          statusBadge.innerHTML = '<span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></span><span>Supabase Live</span>';
+        }
+
+        atualizarContadoresNavbar();
+        renderizarPainel();
+        renderizarListaUltimasAbertas();
+        atualizarDashboard();
+        renderizarSnapshots();
+        if (supervisaoAutenticada) renderizarSupervisao();
+
+      } catch (err) {
+        console.warn('Erro na consulta do Supabase:', err);
+        if (statusBadge) {
+          statusBadge.className = 'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border bg-amber-950/40 text-amber-300 border-amber-800/60';
+          statusBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-amber-500"></span><span>Modo Cache Local</span>';
+        }
       }
     }
 
-    atualizarProgresso(95, "Finalizando...");
+    function atualizarContadoresNavbar() {
+      const pendentes = ordens.filter(o => o.status === 'Pendente').length;
+      const execucao = ordens.filter(o => o.status === 'Em execução').length;
+      const urgentes = ordens.filter(o => o.urgente === 'Sim' && o.status !== 'Concluído').length;
 
-    await carregarDados();
-    fecharModal();
+      document.getElementById('navCounterPendentes').textContent = `${pendentes} Pendentes`;
+      document.getElementById('navCounterExecucao').textContent = `${execucao} Em Execução`;
+      document.getElementById('sidebarTotalBadge').textContent = ordens.length;
 
-    let msg = `${importados} OS importadas para o Supabase.`;
-    if (erros.length > 0) {
-      msg += `\nErros em ${erros.length} registros.`;
-      adicionarLog(`⚠️ Total de erros: ${erros.length}`, "warning");
-      // Mostra os primeiros 5 erros
-      erros.slice(0, 10).forEach(e => adicionarLog(`  ❌ ${e}`, "error"));
-      if (erros.length > 10) {
-        adicionarLog(`  ... e mais ${erros.length - 10} erros.`, "info");
+      const pillUrgentes = document.getElementById('navPillUrgentes');
+      if (urgentes > 0) {
+        pillUrgentes.classList.remove('hidden');
+        document.getElementById('navCounterUrgentes').textContent = `${urgentes} Urgente${urgentes > 1 ? 's' : ''}`;
+      } else {
+        pillUrgentes.classList.add('hidden');
       }
-      mostrarToast(msg, "warning");
-    } else {
-      mostrarToast(msg, "success");
+
+      document.getElementById('countPillTodas').textContent = ordens.length;
+      document.getElementById('countPillPendentes').textContent = pendentes;
+      document.getElementById('countPillExecucao').textContent = execucao;
+      document.getElementById('countPillUrgentes').textContent = urgentes;
     }
 
-    adicionarLog(`✅ Importação finalizada! ${importados} registros importados.`, "success");
+    /* NAVIGATION */
+    function navegarPara(secao) {
+      document.querySelectorAll('main > div > section').forEach(sec => sec.classList.add('hidden'));
+      const alvo = document.getElementById(`section-${secao}`);
+      if (alvo) alvo.classList.remove('hidden');
 
-    abrirPagina("supervisao");
+      document.querySelectorAll('.nav-item').forEach(btn => {
+        btn.className = 'nav-item w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-left transition-all text-zinc-300 hover:text-white hover:bg-zinc-900 border border-transparent';
+      });
 
-  } catch (erro) {
-    console.error(erro);
-    const progresso = document.getElementById("progressoTexto");
-    if (progresso) {
-      progresso.innerHTML = `<div class="alert alert-danger">${escapeHtml(erro.message)}</div>`;
+      const btnAtivo = document.getElementById(`nav-btn-${secao}`);
+      if (btnAtivo) {
+        btnAtivo.className = 'nav-item w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-left transition-all bg-red-600/15 text-red-400 border border-red-500/30 font-semibold';
+      }
+
+      document.getElementById('mainSidebar').classList.add('-translate-x-full');
+      lucide.createIcons();
+
+      if (secao === 'dashboard') atualizarDashboard();
+      if (secao === 'supervisao' && supervisaoAutenticada) renderizarSupervisao();
+      if (secao === 'backups') renderizarSnapshots();
     }
-    adicionarLog(`❌ Erro na importação: ${erro.message}`, "error");
-    mostrarToast("Erro na importação: " + erro.message, "danger");
-  }
-}
 
-function parseCSV(texto) {
-  const linhas = [];
-  let linha = [];
-  let campo = "";
-  let aspas = false;
+    function setModoVisualizacao(modo) {
+      modoVisualizacao = modo;
+      const btnKanban = document.getElementById('btnViewKanban');
+      const btnTabela = document.getElementById('btnViewTabela');
+      const boxKanban = document.getElementById('containerKanban');
+      const boxTabela = document.getElementById('containerTabela');
 
-  for (let i = 0; i < texto.length; i++) {
-    const c = texto[i];
-    const n = texto[i + 1];
-
-    if (c === '"' && aspas && n === '"') {
-      campo += '"';
-      i++;
-    } else if (c === '"') {
-      aspas = !aspas;
-    } else if ((c === ";" || c === ",") && !aspas) {
-      linha.push(campo);
-      campo = "";
-    } else if ((c === "\n" || c === "\r") && !aspas) {
-      if (c === "\r" && n === "\n") i++;
-      linha.push(campo);
-      if (linha.some(x => x !== "")) linhas.push(linha);
-      linha = [];
-      campo = "";
-    } else {
-      campo += c;
+      if (modo === 'kanban') {
+        btnKanban.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-zinc-900 shadow-xs transition-all';
+        btnTabela.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-zinc-600 hover:text-zinc-900 transition-all';
+        boxKanban.classList.remove('hidden');
+        boxTabela.classList.add('hidden');
+      } else {
+        btnTabela.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-zinc-900 shadow-xs transition-all';
+        btnKanban.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-zinc-600 hover:text-zinc-900 transition-all';
+        boxTabela.classList.remove('hidden');
+        boxKanban.classList.add('hidden');
+      }
+      renderizarPainel();
     }
-  }
 
-  linha.push(campo);
-  if (linha.some(x => x !== "")) linhas.push(linha);
+    function filtrarPainelStatus(st) {
+      filtroStatusPainel = st;
+      document.querySelectorAll('#painelFilterPills .filter-pill').forEach(b => {
+        b.className = 'filter-pill px-3 py-1 rounded-full font-semibold bg-zinc-100 text-zinc-600 hover:bg-zinc-200';
+      });
+      event.target.className = 'filter-pill active px-3 py-1 rounded-full font-semibold bg-zinc-900 text-white';
+      renderizarPainel();
+    }
 
-  return linhas;
-}
+    function toggleFiltroUrgentes() {
+      apenasUrgentesPainel = !apenasUrgentesPainel;
+      const btn = document.getElementById('btnToggleUrgentesFiltro');
+      if (apenasUrgentesPainel) {
+        btn.className = 'flex items-center gap-1 px-3 py-1 rounded-full font-bold border bg-red-600 text-white border-red-600 shadow-xs';
+      } else {
+        btn.className = 'flex items-center gap-1 px-3 py-1 rounded-full font-bold border bg-red-50 text-red-700 border-red-200 hover:bg-red-100';
+      }
+      renderizarPainel();
+    }
 
-/* Adiciona o botão de importação na supervisão. */
-const _renderBackupsOriginal = renderBackups;
-renderBackups = function() {
-  _renderBackupsOriginal();
+    function obterOrdensFiltradasPainel() {
+      const termo = (document.getElementById('inputBuscaPainel')?.value || '').toLowerCase();
+      const filtroExec = document.getElementById('selectFiltroExecutantePainel')?.value || 'todos';
 
-  const container = document.getElementById("superBackups");
-  if (!container) return;
+      return ordens.filter(os => {
+        if (apenasUrgentesPainel && os.urgente !== 'Sim') return false;
+        if (filtroStatusPainel !== 'todos' && os.status !== filtroStatusPainel) return false;
+        if (filtroExec !== 'todos' && os.executante1 !== filtroExec && os.executante2 !== filtroExec) return false;
+        if (!termo) return true;
 
-  const actions = container.querySelector(".actions");
-  if (actions) {
-    const btn = document.createElement("button");
-    btn.className = "btn-secondary";
-    btn.textContent = "📤 Importar CSV antigo";
-    btn.onclick = abrirImportacaoCSV;
-    actions.appendChild(btn);
-  }
-};
-</script>
+        return (
+          String(os.id).includes(termo) ||
+          os.descricao.toLowerCase().includes(termo) ||
+          os.solicitante.toLowerCase().includes(termo) ||
+          os.local.toLowerCase().includes(termo) ||
+          os.tipo.toLowerCase().includes(termo) ||
+          os.executante1.toLowerCase().includes(termo)
+        );
+      });
+    }
+
+    /* RENDER KANBAN & TABLE */
+    function renderizarPainel() {
+      const lista = obterOrdensFiltradasPainel();
+      if (modoVisualizacao === 'kanban') {
+        renderizarKanban(lista);
+      } else {
+        renderizarTabela(lista);
+      }
+      lucide.createIcons();
+    }
+
+    function renderizarKanban(lista) {
+      const colunas = [
+        { status: 'Pendente', titulo: 'Pendentes', headerClass: 'bg-amber-50 text-amber-900 border-amber-200', dot: 'bg-amber-500' },
+        { status: 'Em execução', titulo: 'Em Execução', headerClass: 'bg-blue-50 text-blue-900 border-blue-200', dot: 'bg-blue-500' },
+        { status: 'Pausado', titulo: 'Pausados', headerClass: 'bg-zinc-100 text-zinc-900 border-zinc-200', dot: 'bg-zinc-500' },
+        { status: 'Concluído', titulo: 'Concluídos', headerClass: 'bg-emerald-50 text-emerald-900 border-emerald-200', dot: 'bg-emerald-500' }
+      ];
+
+      const container = document.getElementById('containerKanban');
+      container.innerHTML = colunas.map(col => {
+        const itens = lista.filter(o => o.status === col.status);
+        return `
+          <div class="bg-zinc-100/90 rounded-2xl p-3 border border-zinc-200/80 flex flex-col min-h-[480px]">
+            <div class="flex items-center justify-between px-3 py-2.5 rounded-xl border mb-3 ${col.headerClass} font-bold text-xs uppercase tracking-wider">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full ${col.dot}"></span>
+                <span>${col.titulo}</span>
+              </div>
+              <span class="bg-white/90 px-2 py-0.5 rounded-full text-zinc-800 text-[11px] font-black">${itens.length}</span>
+            </div>
+
+            <div class="flex-1 space-y-3 overflow-y-auto max-h-[calc(100vh-16rem)] pr-0.5">
+              ${itens.length === 0 ? `
+                <div class="text-center py-12 px-4 rounded-xl border border-dashed border-zinc-300 text-zinc-400 text-xs font-medium">Nenhuma ordem neste status</div>
+              ` : itens.map(os => `
+                <div onclick="abrirModalDetalhe(${os.id})" class="bg-white rounded-xl p-3.5 border shadow-xs hover:shadow-md transition-all cursor-pointer group relative ${os.urgente === 'Sim' ? 'border-red-300 ring-1 ring-red-400/30' : 'border-zinc-200/90'}">
+                  <div class="flex items-center justify-between gap-2 mb-2">
+                    <div class="flex items-center gap-1.5">
+                      <span class="font-extrabold text-xs text-zinc-900 bg-zinc-100 px-2 py-0.5 rounded border border-zinc-200">#${os.id}</span>
+                      ${os.urgente === 'Sim' ? '<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-300 animate-pulse">URGENTE</span>' : ''}
+                    </div>
+                    ${os.tipo ? `<span class="text-[10px] font-bold px-2 py-0.5 rounded bg-zinc-100 text-zinc-600 border border-zinc-200">${os.tipo}</span>` : ''}
+                  </div>
+
+                  <p class="font-semibold text-zinc-800 text-xs sm:text-sm line-clamp-2 leading-snug mb-2 group-hover:text-red-700 transition-colors">${escapeHtml(os.descricao)}</p>
+
+                  <div class="space-y-1 text-[11px] text-zinc-600 mb-3 bg-zinc-50 p-2 rounded-lg border border-zinc-100">
+                    <div class="truncate">👤 ${escapeHtml(os.solicitante)}</div>
+                    <div class="truncate font-medium">📍 ${escapeHtml(os.local)}</div>
+                  </div>
+
+                  <div class="flex items-center justify-between text-[10px] text-zinc-400 pt-2 border-t border-zinc-100">
+                    <span class="font-semibold text-zinc-700">${os.executante1 ? `🔧 ${escapeHtml(os.executante1)}` : '<em>Sem técnico</em>'}</span>
+                    <span>${os.data}</span>
+                  </div>
+
+                  <div class="mt-3 pt-2 border-t border-zinc-100 flex items-center justify-between" onclick="event.stopPropagation()">
+                    <button onclick="abrirModalFicha(${os.id})" class="p-1 text-zinc-400 hover:text-zinc-800 rounded hover:bg-zinc-100" title="Imprimir Ficha">
+                      <i data-lucide="printer" class="w-3.5 h-3.5"></i>
+                    </button>
+                    <div>
+                      ${os.status === 'Pendente' ? `
+                        <button onclick="avancarStatusRapido(${os.id}, 'Em execução')" class="px-2.5 py-1 text-[11px] font-bold rounded-lg text-white bg-blue-600 hover:bg-blue-700 transition-colors">Iniciar</button>
+                      ` : os.status === 'Em execução' ? `
+                        <button onclick="avancarStatusRapido(${os.id}, 'Concluído')" class="px-2.5 py-1 text-[11px] font-bold rounded-lg text-white bg-emerald-600 hover:bg-emerald-700 transition-colors">Concluir</button>
+                      ` : os.status === 'Pausado' ? `
+                        <button onclick="avancarStatusRapido(${os.id}, 'Em execução')" class="px-2.5 py-1 text-[11px] font-bold rounded-lg text-white bg-zinc-700 hover:bg-zinc-800 transition-colors">Retomar</button>
+                      ` : `
+                        <span class="text-[10px] text-emerald-700 font-bold">✓ ${os.data_conclusao || 'Concluído'}</span>
+                      `}
+                    </div>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderizarTabela(lista) {
+      const tbody = document.getElementById('tabelaOrdensBody');
+      if (lista.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="11" class="py-12 text-center text-zinc-400 font-medium">Nenhuma ordem encontrada.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = lista.map(os => `
+        <tr onclick="abrirModalDetalhe(${os.id})" class="hover:bg-zinc-50 transition-colors cursor-pointer ${os.urgente === 'Sim' ? 'bg-red-50/20' : ''}">
+          <td class="py-3 px-4 font-black text-red-600">#${os.id}</td>
+          <td class="py-3 px-4"><span class="px-2 py-0.5 rounded-full text-xs font-bold ${getBadgeClasses(os.status)}">${os.status}</span></td>
+          <td class="py-3 px-4">${os.urgente === 'Sim' ? '<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-300">URGENTE</span>' : '<span class="text-zinc-400">Normal</span>'}</td>
+          <td class="py-3 px-4 max-w-xs font-semibold text-zinc-900 truncate">${escapeHtml(os.descricao)}</td>
+          <td class="py-3 px-4 font-medium text-zinc-800">${escapeHtml(os.solicitante)}</td>
+          <td class="py-3 px-4 text-zinc-700">${escapeHtml(os.local)}</td>
+          <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-zinc-100 border border-zinc-200 font-medium">${os.tipo}</span></td>
+          <td class="py-3 px-4 font-semibold text-zinc-800">${os.executante1 || '<span class="text-zinc-400 italic">Pendente</span>'}</td>
+          <td class="py-3 px-4 text-zinc-600">${os.data}</td>
+          <td class="py-3 px-4 text-zinc-600">${os.data_conclusao ? `<span class="font-bold text-emerald-700">${os.data_conclusao}</span>` : '-'}</td>
+          <td class="py-3 px-4 text-right" onclick="event.stopPropagation()">
+            <button onclick="abrirModalFicha(${os.id})" class="p-1.5 text-zinc-500 hover:text-zinc-900 rounded hover:bg-zinc-200">
+              <i data-lucide="printer" class="w-4 h-4"></i>
+            </button>
+            <button onclick="abrirModalDetalhe(${os.id})" class="p-1.5 text-zinc-500 hover:text-red-600 rounded hover:bg-zinc-200">
+              <i data-lucide="eye" class="w-4 h-4"></i>
+            </button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function getBadgeClasses(status) {
+      if (status === 'Pendente') return 'bg-amber-50 text-amber-800 border border-amber-200';
+      if (status === 'Em execução') return 'bg-blue-50 text-blue-800 border border-blue-200';
+      if (status === 'Pausado') return 'bg-zinc-100 text-zinc-700 border border-zinc-200';
+      return 'bg-emerald-50 text-emerald-800 border border-emerald-200';
+    }
+
+    function escapeHtml(str) {
+      return String(str || '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[m]);
+    }
+
+    /* CADASTRO DE NOVA OS */
+    function configurarEventos() {
+      // Mobile sidebar toggle
+      document.getElementById('btnToggleMobileMenu')?.addEventListener('click', () => {
+        document.getElementById('mainSidebar').classList.remove('-translate-x-full');
+      });
+      document.getElementById('btnCloseSidebar')?.addEventListener('click', () => {
+        document.getElementById('mainSidebar').classList.add('-translate-x-full');
+      });
+
+      // Recarregar
+      document.getElementById('btnRecarregarSupabase')?.addEventListener('click', () => carregarDados(true));
+
+      // Busca painel input
+      document.getElementById('inputBuscaPainel')?.addEventListener('input', renderizarPainel);
+
+      // Card Urgente toggle
+      document.getElementById('cardToggleUrgente')?.addEventListener('click', () => {
+        const chk = document.getElementById('cadUrgente');
+        chk.checked = !chk.checked;
+      });
+
+      // Preview inputs
+      const updatePreview = () => {
+        document.getElementById('previewDescricao').textContent = document.getElementById('cadDescricao').value || 'A descrição aparecerá aqui...';
+        document.getElementById('previewSolicitante').textContent = document.getElementById('cadSolicitante').value || 'A preencher';
+        document.getElementById('previewLocal').textContent = document.getElementById('cadLocal').value || 'A preencher';
+        document.getElementById('previewTipo').textContent = document.getElementById('cadTipo').value || 'Geral';
+      };
+      ['cadDescricao', 'cadSolicitante', 'cadLocal', 'cadTipo'].forEach(id => {
+        document.getElementById(id)?.addEventListener('input', updatePreview);
+      });
+
+      // Submit Cadastro
+      document.getElementById('formCadastrarOS')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const desc = document.getElementById('cadDescricao').value.trim();
+        const sol = document.getElementById('cadSolicitante').value.trim();
+        const loc = document.getElementById('cadLocal').value.trim();
+        const tipo = document.getElementById('cadTipo').value;
+        const exec = document.getElementById('cadExecutante').value;
+        const urg = document.getElementById('cadUrgente').checked ? 'Sim' : 'Não';
+        const obs = document.getElementById('cadObservacoes').value.trim();
+
+        if (!desc || !sol || !loc) {
+          alert('Preencha os campos obrigatórios (*).');
+          return;
+        }
+
+        const btn = document.getElementById('btnSubmitCadastro');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="animate-spin inline-block mr-2">⟳</span> Salvando no Supabase...';
+
+        const agora = agoraBrasil();
+        const payload = {
+          descricao: desc,
+          solicitante: sol,
+          local: loc,
+          tipo: tipo || 'Geral',
+          status: 'Pendente',
+          data: agora.data,
+          hora_abertura: agora.hora,
+          data_conclusao: '',
+          hora_conclusao: '',
+          executante1: exec || '',
+          executante2: '',
+          urgente: urg,
+          observacoes: obs
+        };
+
+        try {
+          const { data, error } = await supabaseClient
+            .from(TABLE_NAME)
+            .insert([payload])
+            .select()
+            .single();
+
+          if (error) throw error;
+
+          alert('Ordem de serviço cadastrada com sucesso!');
+          document.getElementById('formCadastrarOS').reset();
+          updatePreview();
+          await carregarDados(false);
+          navegarPara('painel');
+        } catch (err) {
+          alert('Erro ao salvar no Supabase: ' + err.message);
+        } finally {
+          btn.disabled = false;
+          btn.innerHTML = '<i data-lucide="plus-circle" class="w-5 h-5"></i><span>Cadastrar Ordem de Serviço</span>';
+          lucide.createIcons();
+        }
+      });
+
+      // Modal Edit Submit
+      document.getElementById('formModalEditarOS')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const id = Number(document.getElementById('modalOSIdInput').value);
+        const st = document.getElementById('modalOSSelectStatus').value;
+        const tp = document.getElementById('modalOSSelectTipo').value;
+        const ex1 = document.getElementById('modalOSSelectExec1').value;
+        const ex2 = document.getElementById('modalOSSelectExec2').value;
+        const obs = document.getElementById('modalOSTextObservacoes').value.trim();
+
+        const alteracoes = {
+          status: st,
+          tipo: tp,
+          executante1: ex1,
+          executante2: ex2,
+          observacoes: obs
+        };
+
+        const osAtual = ordens.find(o => o.id === id);
+        if (st === 'Concluído' && osAtual?.status !== 'Concluído') {
+          const br = agoraBrasil();
+          alteracoes.data_conclusao = br.data;
+          alteracoes.hora_conclusao = br.hora;
+        } else if (st !== 'Concluído' && osAtual?.status === 'Concluído') {
+          alteracoes.data_conclusao = '';
+          alteracoes.hora_conclusao = '';
+        }
+
+        try {
+          const { error } = await supabaseClient
+            .from(TABLE_NAME)
+            .update(alteracoes)
+            .eq('id', id);
+
+          if (error) throw error;
+          fecharModalDetalhe();
+          await carregarDados(false);
+        } catch (err) {
+          alert('Erro ao atualizar OS: ' + err.message);
+        }
+      });
+
+      // Supervisão Login
+      document.getElementById('formLoginSupervisao')?.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const senha = document.getElementById('inputSenhaSupervisao').value;
+        if (senha === SENHA_SUPERVISAO) {
+          supervisaoAutenticada = true;
+          document.getElementById('supervisaoLockBox').classList.add('hidden');
+          document.getElementById('supervisaoUnlockedContent').classList.remove('hidden');
+          renderizarSupervisao();
+        } else {
+          document.getElementById('msgErroSenha').classList.remove('hidden');
+        }
+      });
+
+      // Modal confirm delete
+      document.getElementById('btnConfirmarExclusaoDefinitiva')?.addEventListener('click', async () => {
+        if (!osIdParaExcluir) return;
+        try {
+          const { error } = await supabaseClient
+            .from(TABLE_NAME)
+            .delete()
+            .eq('id', osIdParaExcluir);
+
+          if (error) throw error;
+          fecharModalExclusao();
+          await carregarDados(false);
+          alert('OS excluída com sucesso.');
+        } catch (err) {
+          alert('Erro ao excluir: ' + err.message);
+        }
+      });
+
+      // CSV upload input
+      document.getElementById('arquivoCSVUpload')?.addEventListener('change', processarImportacaoCSV);
+    }
+
+    function renderizarListaUltimasAbertas() {
+      const container = document.getElementById('listaUltimasAbertas');
+      const abertas = ordens.filter(o => o.status !== 'Concluído').slice(0, 5);
+      if (abertas.length === 0) {
+        container.innerHTML = '<div class="py-4 text-center text-zinc-400">Nenhuma ordem em aberto no momento.</div>';
+        return;
+      }
+
+      container.innerHTML = abertas.map(o => `
+        <div onclick="abrirModalDetalhe(${o.id})" class="py-2 hover:bg-zinc-50 px-1 rounded transition-colors cursor-pointer">
+          <div class="flex items-center justify-between">
+            <span class="font-extrabold text-red-600">#${o.id}</span>
+            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${getBadgeClasses(o.status)}">${o.status}</span>
+          </div>
+          <p class="font-medium text-zinc-800 truncate">${escapeHtml(o.descricao)}</p>
+          <div class="flex items-center justify-between text-[10px] text-zinc-400 mt-0.5">
+            <span>${escapeHtml(o.solicitante)}</span>
+            <span>${o.data}</span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    /* MODAL DETALHE */
+    function abrirModalDetalhe(id) {
+      const os = ordens.find(o => o.id === id);
+      if (!os) return;
+
+      document.getElementById('modalOSIdInput').value = os.id;
+      document.getElementById('modalOSIdBadge').textContent = `OS #${os.id}`;
+      
+      const badge = document.getElementById('modalOSStatusBadge');
+      badge.textContent = os.status;
+      badge.className = `text-xs font-bold px-2.5 py-0.5 rounded-full ${getBadgeClasses(os.status)}`;
+
+      document.getElementById('modalOSDescricao').textContent = os.descricao;
+      document.getElementById('modalOSSolicitante').textContent = os.solicitante;
+      document.getElementById('modalOSLocal').textContent = os.local;
+      document.getElementById('modalOSDataAbertura').textContent = `${os.data} às ${os.hora_abertura}`;
+      document.getElementById('modalOSDataConclusao').textContent = os.data_conclusao ? `${os.data_conclusao} às ${os.hora_conclusao}` : 'Em Aberto';
+
+      document.getElementById('modalOSSelectStatus').value = os.status;
+      document.getElementById('modalOSSelectTipo').value = os.tipo || '';
+      document.getElementById('modalOSSelectExec1').value = os.executante1 || '';
+      document.getElementById('modalOSSelectExec2').value = os.executante2 || '';
+      document.getElementById('modalOSTextObservacoes').value = os.observacoes || '';
+
+      document.getElementById('btnModalImprimir').onclick = () => abrirModalFicha(os.id);
+
+      const modal = document.getElementById('modalDetalheOS');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      lucide.createIcons();
+    }
+
+    function fecharModalDetalhe() {
+      const modal = document.getElementById('modalDetalheOS');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    async function avancarStatusRapido(id, novoStatus) {
+      const os = ordens.find(o => o.id === id);
+      const alteracoes = { status: novoStatus };
+      if (novoStatus === 'Em execução' && !os?.executante1) {
+        alteracoes.executante1 = 'Guilherme';
+      }
+      if (novoStatus === 'Concluído') {
+        const br = agoraBrasil();
+        alteracoes.data_conclusao = br.data;
+        alteracoes.hora_conclusao = br.hora;
+      }
+
+      try {
+        await supabaseClient.from(TABLE_NAME).update(alteracoes).eq('id', id);
+        await carregarDados(false);
+      } catch (err) {
+        alert('Erro ao mudar status: ' + err.message);
+      }
+    }
+
+    /* MODAL FICHA DE IMPRESSÃO (A4) */
+    function abrirModalFicha(id) {
+      const os = ordens.find(o => o.id === id);
+      if (!os) return;
+
+      const corpo = document.getElementById('fichaImpressaoCorpo');
+      corpo.innerHTML = `
+        <div class="border-b-2 border-red-600 pb-4 mb-6 flex items-start justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 bg-red-600 text-white rounded-xl flex items-center justify-center font-black text-xl">K&amp;J</div>
+            <div>
+              <h1 class="text-xl font-extrabold text-zinc-900 leading-tight">KING &amp; JOE</h1>
+              <p class="text-xs uppercase font-semibold text-zinc-500 tracking-wider">Departamento de Manutenção Industrial &amp; Predial</p>
+            </div>
+          </div>
+          <div class="text-right">
+            <span class="text-xs font-bold uppercase text-zinc-400">Ordem de Serviço</span>
+            <div class="text-2xl font-black text-red-600 leading-none">Nº ${String(os.id).padStart(6, '0')}</div>
+            <div class="text-[11px] text-zinc-500 mt-1">Data: ${os.data} às ${os.hora_abertura}</div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-4 gap-3 p-3 bg-zinc-50 border border-zinc-200 rounded-xl mb-6 text-xs">
+          <div><span class="text-zinc-500 block text-[10px] uppercase font-bold">Status Atual</span><span class="font-bold text-zinc-900">${os.status}</span></div>
+          <div><span class="text-zinc-500 block text-[10px] uppercase font-bold">Prioridade</span><span class="font-bold ${os.urgente === 'Sim' ? 'text-red-600' : 'text-zinc-700'}">${os.urgente === 'Sim' ? '🚨 URGENTE' : 'Normal'}</span></div>
+          <div><span class="text-zinc-500 block text-[10px] uppercase font-bold">Especialidade</span><span class="font-bold text-zinc-900">${os.tipo}</span></div>
+          <div><span class="text-zinc-500 block text-[10px] uppercase font-bold">Conclusão</span><span class="font-bold text-zinc-900">${os.data_conclusao ? `${os.data_conclusao} ${os.hora_conclusao}` : 'Em Aberto'}</span></div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4 mb-6 text-sm">
+          <div class="border border-zinc-200 rounded-xl p-3.5"><span class="text-xs text-zinc-500 font-semibold block mb-1">SOLICITANTE</span><p class="font-bold text-zinc-800">${escapeHtml(os.solicitante)}</p></div>
+          <div class="border border-zinc-200 rounded-xl p-3.5"><span class="text-xs text-zinc-500 font-semibold block mb-1">LOCAL / SETOR</span><p class="font-bold text-zinc-800">${escapeHtml(os.local)}</p></div>
+        </div>
+
+        <div class="border border-zinc-200 rounded-xl p-4 mb-6">
+          <span class="text-xs font-bold uppercase text-zinc-500 tracking-wider block mb-2">DESCRIÇÃO DA ATIVIDADE / DIAGNÓSTICO</span>
+          <div class="p-3 bg-zinc-50 rounded-lg border border-zinc-100 font-mono text-sm leading-relaxed text-zinc-800 min-h-[70px]">${escapeHtml(os.descricao)}</div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4 mb-6 text-sm">
+          <div class="border border-zinc-200 rounded-xl p-3.5"><span class="text-xs text-zinc-500 font-semibold block mb-1">EXECUTANTE PRINCIPAL</span><p class="font-bold text-zinc-800">${escapeHtml(os.executante1 || '_________________________')}</p></div>
+          <div class="border border-zinc-200 rounded-xl p-3.5"><span class="text-xs text-zinc-500 font-semibold block mb-1">EXECUTANTE AUXILIAR</span><p class="font-bold text-zinc-800">${escapeHtml(os.executante2 || '_________________________')}</p></div>
+        </div>
+
+        <div class="border border-zinc-200 rounded-xl p-4 mb-6">
+          <span class="text-xs font-bold uppercase text-zinc-500 tracking-wider block mb-2">OBSERVAÇÕES TÉCNICAS E MATERIAIS UTILIZADOS</span>
+          <div class="p-3 bg-zinc-50 rounded-lg border border-zinc-100 text-sm text-zinc-700 min-h-[60px]">${escapeHtml(os.observacoes || 'Nenhuma observação técnica registrada.')}</div>
+        </div>
+
+        <div class="pt-8 mt-8 border-t border-zinc-200 grid grid-cols-2 gap-10 text-center">
+          <div><div class="border-t border-zinc-400 mx-6 pt-2"><p class="text-xs font-bold text-zinc-800">${escapeHtml(os.solicitante)}</p><p class="text-[11px] text-zinc-500">Visto do Solicitante</p></div></div>
+          <div><div class="border-t border-zinc-400 mx-6 pt-2"><p class="text-xs font-bold text-zinc-800">${escapeHtml(os.executante1 || 'Técnico Responsável')}</p><p class="text-[11px] text-zinc-500">Visto do Técnico</p></div></div>
+        </div>
+      `;
+
+      const modal = document.getElementById('modalFichaImpressao');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      lucide.createIcons();
+    }
+
+    function fecharModalFicha() {
+      const modal = document.getElementById('modalFichaImpressao');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    /* DASHBOARD CHARTS */
+    function setDashboardPeriodo(p) {
+      dashboardPeriodo = p;
+      const btnTodos = document.getElementById('btnDashPeriodoTodos');
+      const btnMes = document.getElementById('btnDashPeriodoMes');
+      const boxFiltros = document.getElementById('dashMesAnoFiltros');
+
+      if (p === 'Todos') {
+        btnTodos.className = 'px-3 py-1.5 rounded-lg bg-white text-zinc-900 shadow-xs transition-all';
+        btnMes.className = 'px-3 py-1.5 rounded-lg text-zinc-600 hover:text-zinc-900 transition-all';
+        boxFiltros.classList.add('hidden');
+      } else {
+        btnMes.className = 'px-3 py-1.5 rounded-lg bg-white text-zinc-900 shadow-xs transition-all';
+        btnTodos.className = 'px-3 py-1.5 rounded-lg text-zinc-600 hover:text-zinc-900 transition-all';
+        boxFiltros.classList.remove('hidden');
+      }
+      atualizarDashboard();
+    }
+
+    function parseDataBRHelper(str) {
+      if (!str) return null;
+      const p = str.split('/');
+      if (p.length < 2) return null;
+      const d = Number(p[0]);
+      const m = Number(p[1]);
+      const y = p.length === 3 ? Number(p[2]) : new Date().getFullYear();
+      return new Date(y, m - 1, d);
+    }
+
+    function atualizarDashboard() {
+      const mes = Number(document.getElementById('dashSelectMes')?.value || 9);
+      const ano = Number(document.getElementById('dashSelectAno')?.value || 2026);
+
+      let lista = ordens;
+      if (dashboardPeriodo === 'MesAno') {
+        lista = ordens.filter(os => {
+          const d = parseDataBRHelper(os.data) || parseDataBRHelper(os.data_conclusao);
+          return d && d.getMonth() + 1 === mes && d.getFullYear() === ano;
+        });
+      }
+
+      const total = lista.length;
+      const concluidas = lista.filter(o => o.status === 'Concluído').length;
+      const pendentes = lista.filter(o => o.status === 'Pendente').length;
+      const execucao = lista.filter(o => o.status === 'Em execução').length;
+      const urgentes = lista.filter(o => o.urgente === 'Sim').length;
+      const taxa = total > 0 ? Math.round((concluidas / total) * 100) : 0;
+
+      document.getElementById('dashTotalOS').textContent = total;
+      document.getElementById('dashConcluidasOS').textContent = concluidas;
+      document.getElementById('dashTaxaConclusao').textContent = `${taxa}% de resolução`;
+      document.getElementById('dashAbertasOS').textContent = pendentes + execucao;
+      document.getElementById('dashSubAbertas').textContent = `${pendentes} pendentes, ${execucao} em execução`;
+      document.getElementById('dashUrgentesOS').textContent = urgentes;
+
+      // Tipos Map
+      const tiposMap = {};
+      lista.forEach(o => {
+        const tp = o.tipo || 'Outros';
+        tiposMap[tp] = (tiposMap[tp] || 0) + 1;
+      });
+
+      if (chartTipos) chartTipos.destroy();
+      const ctxTipos = document.getElementById('chartTiposCanvas')?.getContext('2d');
+      if (ctxTipos) {
+        chartTipos = new Chart(ctxTipos, {
+          type: 'doughnut',
+          data: {
+            labels: Object.keys(tiposMap).length ? Object.keys(tiposMap) : ['Sem dados'],
+            datasets: [{
+              data: Object.values(tiposMap).length ? Object.values(tiposMap) : [1],
+              backgroundColor: ['#dc2626', '#2563eb', '#16a34a', '#d97706', '#7c3aed', '#0891b2', '#6b7280']
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'right' } }
+          }
+        });
+      }
+
+      // Executantes Map (OS Concluídas)
+      const execMap = {};
+      lista.filter(o => o.status === 'Concluído').forEach(o => {
+        if (o.executante1 && o.executante1.toLowerCase() !== 'nan') execMap[o.executante1] = (execMap[o.executante1] || 0) + 1;
+        if (o.executante2 && o.executante2.toLowerCase() !== 'nan') execMap[o.executante2] = (execMap[o.executante2] || 0) + 1;
+      });
+
+      if (chartExecutantes) chartExecutantes.destroy();
+      const ctxExec = document.getElementById('chartExecutantesCanvas')?.getContext('2d');
+      if (ctxExec) {
+        chartExecutantes = new Chart(ctxExec, {
+          type: 'bar',
+          data: {
+            labels: Object.keys(execMap).length ? Object.keys(execMap) : ['Sem dados'],
+            datasets: [{
+              label: 'OS Concluídas',
+              data: Object.values(execMap).length ? Object.values(execMap) : [0],
+              backgroundColor: '#dc2626',
+              borderRadius: 6
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+          }
+        });
+      }
+    }
+
+    /* SUPERVISÃO */
+    function bloquearSupervisao() {
+      supervisaoAutenticada = false;
+      document.getElementById('supervisaoLockBox').classList.remove('hidden');
+      document.getElementById('supervisaoUnlockedContent').classList.add('hidden');
+      document.getElementById('inputSenhaSupervisao').value = '';
+    }
+
+    function renderizarSupervisao() {
+      const termo = (document.getElementById('inputBuscaSupervisao')?.value || '').toLowerCase();
+      const stFiltro = document.getElementById('selectFiltroStatusSuper')?.value || 'todos';
+      const tpFiltro = document.getElementById('selectFiltroTipoSuper')?.value || 'todos';
+
+      const lista = ordens.filter(os => {
+        if (stFiltro !== 'todos' && os.status !== stFiltro) return false;
+        if (tpFiltro !== 'todos' && os.tipo !== tpFiltro) return false;
+        if (!termo) return true;
+        return (
+          String(os.id).includes(termo) ||
+          os.descricao.toLowerCase().includes(termo) ||
+          os.solicitante.toLowerCase().includes(termo) ||
+          os.local.toLowerCase().includes(termo) ||
+          os.executante1.toLowerCase().includes(termo)
+        );
+      });
+
+      const tbody = document.getElementById('tabelaSupervisaoBody');
+      if (lista.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" class="py-8 text-center text-zinc-400">Nenhuma ordem encontrada.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = lista.map(os => `
+        <tr class="hover:bg-zinc-50 transition-colors">
+          <td class="py-3 px-4 font-black text-red-600">#${os.id}</td>
+          <td class="py-3 px-4"><span class="px-2 py-0.5 rounded-full text-[11px] font-bold ${getBadgeClasses(os.status)}">${os.status}</span></td>
+          <td class="py-3 px-4 font-semibold text-zinc-900 max-w-xs truncate">${escapeHtml(os.descricao)}</td>
+          <td class="py-3 px-4 text-zinc-800">${escapeHtml(os.solicitante)}</td>
+          <td class="py-3 px-4 text-zinc-700">${escapeHtml(os.local)}</td>
+          <td class="py-3 px-4">${os.tipo}</td>
+          <td class="py-3 px-4 font-medium">${os.executante1 || '-'}</td>
+          <td class="py-3 px-4 text-zinc-500">${os.data}</td>
+          <td class="py-3 px-4 text-right whitespace-nowrap">
+            <button onclick="abrirModalDetalhe(${os.id})" class="p-1.5 text-zinc-600 hover:text-zinc-900 rounded hover:bg-zinc-100 mr-1" title="Editar">
+              <i data-lucide="edit-3" class="w-4 h-4"></i>
+            </button>
+            <button onclick="abrirModalExclusao(${os.id})" class="p-1.5 text-rose-600 hover:text-rose-800 rounded hover:bg-rose-50" title="Excluir OS">
+              <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </button>
+          </td>
+        </tr>
+      `).join('');
+
+      lucide.createIcons();
+    }
+
+    function abrirModalExclusao(id) {
+      osIdParaExcluir = id;
+      const os = ordens.find(o => o.id === id);
+      document.getElementById('textoConfirmacaoExclusao').innerHTML = `Tem certeza que deseja EXCLUIR definitivamente a <strong>OS #${id}</strong> (${escapeHtml(os?.descricao)})?<br><span class="text-rose-600 font-semibold">Esta ação apagará o registro no Supabase.</span>`;
+      const modal = document.getElementById('modalConfirmarExclusao');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      lucide.createIcons();
+    }
+
+    function fecharModalExclusao() {
+      osIdParaExcluir = null;
+      const modal = document.getElementById('modalConfirmarExclusao');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    /* BACKUPS & CSV */
+    function criarBackupSnapshot() {
+      const agora = new Date();
+      const pad = (n) => String(n).padStart(2, '0');
+      const nome = `ordens_servico_${agora.getFullYear()}${pad(agora.getMonth()+1)}${pad(agora.getDate())}_${pad(agora.getHours())}${pad(agora.getMinutes())}.json`;
+
+      const backup = {
+        nome: nome,
+        data: agora.toISOString(),
+        total: ordens.length,
+        dados: ordens
+      };
+
+      const lista = JSON.parse(localStorage.getItem('kingjoe_snapshots') || '[]');
+      lista.unshift(backup);
+      localStorage.setItem('kingjoe_snapshots', JSON.stringify(lista.slice(0, 10)));
+
+      // Download JSON
+      const blob = new Blob([JSON.stringify(ordens, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = nome;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+
+      renderizarSnapshots();
+      alert('Snapshot criado e arquivo JSON baixado com sucesso!');
+    }
+
+    function exportarCSVCompleto() {
+      if (!ordens.length) return alert('Sem dados para exportar.');
+      const cols = ['id', 'descricao', 'data', 'hora_abertura', 'solicitante', 'local', 'tipo', 'status', 'data_conclusao', 'hora_conclusao', 'executante1', 'executante2', 'urgente', 'observacoes'];
+      const headers = ['ID', 'Descrição', 'Data', 'Hora Abertura', 'Solicitante', 'Local', 'Tipo', 'Status', 'Data Conclusão', 'Hora Conclusão', 'Executante 1', 'Executante 2', 'Urgente', 'Observações'];
+      const esc = (v) => `"${String(v || '').replace(/"/g, '""')}"`;
+
+      const lines = [
+        headers.map(esc).join(';'),
+        ...ordens.map(row => cols.map(c => esc(row[c])).join(';'))
+      ];
+
+      const blob = new Blob(['\ufeff' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'ordens_servico_kingjoe.csv';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function renderizarSnapshots() {
+      const container = document.getElementById('listaSnapshotsBackups');
+      const lista = JSON.parse(localStorage.getItem('kingjoe_snapshots') || '[]');
+      if (lista.length === 0) {
+        container.innerHTML = '<div class="p-6 text-center text-zinc-400">Nenhum snapshot armazenado no navegador ainda.</div>';
+        return;
+      }
+
+      container.innerHTML = lista.map((b, i) => `
+        <div class="p-3.5 flex items-center justify-between hover:bg-zinc-50 transition-colors">
+          <div>
+            <strong class="text-zinc-800">${escapeHtml(b.nome)}</strong>
+            <div class="text-[11px] text-zinc-500">${new Date(b.data).toLocaleString('pt-BR')} • ${b.total} OS salvas</div>
+          </div>
+          <button onclick="restaurarSnapshot(${i})" class="px-3 py-1 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 font-semibold hover:bg-amber-100">Restaurar</button>
+        </div>
+      `).join('');
+    }
+
+    function limparBackupsLocais() {
+      localStorage.removeItem('kingjoe_snapshots');
+      renderizarSnapshots();
+    }
+
+    async function restaurarSnapshot(idx) {
+      const lista = JSON.parse(localStorage.getItem('kingjoe_snapshots') || '[]');
+      const b = lista[idx];
+      if (!b) return;
+      if (!confirm(`Restaurar ${b.total} ordens de serviço no Supabase?`)) return;
+
+      try {
+        const registros = b.dados.map(x => ({
+          id: x.id,
+          descricao: x.descricao,
+          data: x.data,
+          hora_abertura: x.hora_abertura,
+          solicitante: x.solicitante,
+          local: x.local,
+          tipo: x.tipo,
+          status: x.status,
+          data_conclusao: x.data_conclusao,
+          hora_conclusao: x.hora_conclusao,
+          executante1: x.executante1,
+          executante2: x.executante2,
+          urgente: x.urgente,
+          observacoes: x.observacoes
+        }));
+
+        await supabaseClient.from(TABLE_NAME).upsert(registros, { onConflict: 'id' });
+        await carregarDados(false);
+        alert('Snapshot restaurado com sucesso!');
+      } catch (err) {
+        alert('Erro ao restaurar: ' + err.message);
+      }
+    }
+
+    function abrirModalImportCSV() {
+      const modal = document.getElementById('modalImportCSV');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      document.getElementById('progressoImportBox').classList.add('hidden');
+      document.getElementById('logImportBox').classList.add('hidden');
+      document.getElementById('logImportBox').innerHTML = '';
+      lucide.createIcons();
+    }
+
+    function fecharModalImportCSV() {
+      const modal = document.getElementById('modalImportCSV');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    async function processarImportacaoCSV(e) {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      const progressBox = document.getElementById('progressoImportBox');
+      const progressBar = document.getElementById('progressoImportBar');
+      const progressPct = document.getElementById('progressoImportPct');
+      const progressTxt = document.getElementById('progressoImportTexto');
+      const logBox = document.getElementById('logImportBox');
+
+      progressBox.classList.remove('hidden');
+      logBox.classList.remove('hidden');
+      const log = (msg) => {
+        logBox.innerHTML += `<div>• ${escapeHtml(msg)}</div>`;
+        logBox.scrollTop = logBox.scrollHeight;
+      };
+
+      try {
+        log(`Lendo arquivo ${file.name}...`);
+        const text = await file.text();
+        const lines = text.split(/\r?\n/).filter(l => l.trim() !== '');
+        if (lines.length < 2) throw new Error('Arquivo vazio ou sem cabeçalho.');
+
+        log(`${lines.length - 1} linhas encontradas. Processando...`);
+        const header = lines[0].split(/[;,]/).map(c => c.replace(/"/g, '').trim().toLowerCase());
+        const findIdx = (...names) => header.findIndex(h => names.some(n => h.includes(n)));
+
+        const idxId = findIdx('id');
+        const idxDesc = findIdx('descrição', 'descricao');
+        const idxSol = findIdx('solicitante');
+        const idxLoc = findIdx('local');
+        const idxTipo = findIdx('tipo');
+        const idxStatus = findIdx('status');
+        const idxData = findIdx('data');
+        const idxExec1 = findIdx('executante1', 'executante 1', 'executante');
+
+        const regs = [];
+        for (let i = 1; i < lines.length; i++) {
+          const parts = lines[i].split(/[;,]/).map(c => c.replace(/"/g, '').trim());
+          const id = Number(parts[idxId]);
+          const desc = parts[idxDesc];
+          if (!id || !desc) continue;
+
+          regs.push({
+            id: id,
+            descricao: desc,
+            solicitante: parts[idxSol] || '',
+            local: parts[idxLoc] || '',
+            tipo: parts[idxTipo] || 'Geral',
+            status: parts[idxStatus] || 'Pendente',
+            data: parts[idxData] || '',
+            executante1: parts[idxExec1] || '',
+            urgente: 'Não'
+          });
+        }
+
+        log(`${regs.length} registros válidos mapeados.`);
+        const batchSize = 500;
+        const totalBatches = Math.ceil(regs.length / batchSize);
+
+        for (let b = 0; b < totalBatches; b++) {
+          const batch = regs.slice(b * batchSize, (b + 1) * batchSize);
+          const pct = Math.round(((b + 1) / totalBatches) * 100);
+          progressBar.style.width = `${pct}%`;
+          progressPct.textContent = `${pct}%`;
+          progressTxt.textContent = `Enviando lote ${b + 1} de ${totalBatches}...`;
+
+          await supabaseClient.from(TABLE_NAME).upsert(batch, { onConflict: 'id' });
+          log(`Lote ${b + 1}/${totalBatches} importado (+${batch.length})`);
+        }
+
+        progressTxt.textContent = 'Importação finalizada com sucesso!';
+        await carregarDados(false);
+        alert('Importação concluída com sucesso!');
+      } catch (err) {
+        log(`Erro: ${err.message}`);
+        alert('Erro ao importar CSV: ' + err.message);
+      }
+    }
+  </script>
 </body>
 </html>
