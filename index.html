@@ -313,7 +313,7 @@
                   <textarea id="cadDescricao" required rows="3" placeholder="Descreva detalhadamente o problema ou serviço necessário..." class="w-full px-4 py-3 rounded-xl border border-zinc-300 focus:ring-2 focus:ring-red-500 outline-none text-zinc-900 text-sm resize-y shadow-xs"></textarea>
                 </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
                     <label class="block text-xs font-bold text-zinc-800 uppercase tracking-wider mb-1.5">Solicitante *</label>
                     <div class="relative">
@@ -326,7 +326,7 @@
                     <label class="block text-xs font-bold text-zinc-800 uppercase tracking-wider mb-1.5">Local / Setor *</label>
                     <div class="relative">
                       <i data-lucide="map-pin" class="w-4 h-4 text-zinc-400 absolute left-3.5 top-3.5"></i>
-                      <input id="cadLocal" type="text" required list="listaLocaisSugestao" placeholder="Ex: Produção, Refeitório, Estoque..." class="w-full pl-10 pr-3 py-2.5 rounded-xl border border-zinc-300 focus:ring-2 focus:ring-red-500 outline-none text-zinc-900 text-sm font-medium shadow-xs">
+                      <input id="cadLocal" type="text" required list="listaLocaisSugestao" placeholder="Ex: Produção, Refeitório..." class="w-full pl-10 pr-3 py-2.5 rounded-xl border border-zinc-300 focus:ring-2 focus:ring-red-500 outline-none text-zinc-900 text-sm font-medium shadow-xs">
                       <datalist id="listaLocaisSugestao">
                         <option value="Produção / Fábrica">
                         <option value="Expedição &amp; Estoque">
@@ -339,9 +339,7 @@
                       </datalist>
                     </div>
                   </div>
-                </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label class="block text-xs font-bold text-zinc-800 uppercase tracking-wider mb-1.5">Tipo / Especialidade</label>
                     <select id="cadTipo" class="w-full px-3 py-2.5 rounded-xl border border-zinc-300 focus:ring-2 focus:ring-red-500 outline-none text-zinc-900 text-sm font-medium shadow-xs bg-white">
@@ -353,17 +351,6 @@
                       <option value="Civil">Civil</option>
                       <option value="Instalação">Instalação</option>
                       <option value="Outros">Outros</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label class="block text-xs font-bold text-zinc-800 uppercase tracking-wider mb-1.5">Executante Sugerido (Opcional)</label>
-                    <select id="cadExecutante" class="w-full px-3 py-2.5 rounded-xl border border-zinc-300 focus:ring-2 focus:ring-red-500 outline-none text-zinc-900 text-sm font-medium shadow-xs bg-white">
-                      <option value="">A definir pela supervisão</option>
-                      <option value="Guilherme">Guilherme</option>
-                      <option value="Ismael">Ismael</option>
-                      <option value="Robson">Robson</option>
-                      <option value="Técnico Externo">Técnico Externo</option>
                     </select>
                   </div>
                 </div>
@@ -380,11 +367,6 @@
                       <p class="text-xs text-zinc-500">Marque se causar interrupção imediata na operação.</p>
                     </div>
                   </div>
-                </div>
-
-                <div>
-                  <label class="block text-xs font-bold text-zinc-800 uppercase tracking-wider mb-1.5">Observações Iniciais (Opcional)</label>
-                  <input id="cadObservacoes" type="text" placeholder="Instruções de acesso ou detalhes adicionais..." class="w-full px-3 py-2 rounded-xl border border-zinc-300 focus:ring-2 focus:ring-red-500 outline-none text-zinc-900 text-sm">
                 </div>
 
                 <div class="pt-3 border-t border-zinc-200 flex items-center justify-end">
@@ -1222,9 +1204,7 @@
         const sol = document.getElementById('cadSolicitante').value.trim();
         const loc = document.getElementById('cadLocal').value.trim();
         const tipo = document.getElementById('cadTipo').value;
-        const exec = document.getElementById('cadExecutante').value;
         const urg = document.getElementById('cadUrgente').checked ? 'Sim' : 'Não';
-        const obs = document.getElementById('cadObservacoes').value.trim();
 
         if (!desc || !sol || !loc) {
           alert('Preencha os campos obrigatórios (*).');
@@ -1246,10 +1226,10 @@
           hora_abertura: agora.hora,
           data_conclusao: '',
           hora_conclusao: '',
-          executante1: exec || '',
+          executante1: '',
           executante2: '',
           urgente: urg,
-          observacoes: obs
+          observacoes: ''
         };
 
         try {
