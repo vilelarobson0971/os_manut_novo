@@ -134,17 +134,7 @@
               <div class="text-[11px] text-zinc-400">Abertura de Chamado</div>
             </div>
           </div>
-        </button>
-
-        <button onclick="navegarPara('painel')" id="nav-btn-painel" class="nav-item w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-left transition-all text-zinc-300 hover:text-white hover:bg-zinc-900 border border-transparent">
-          <div class="flex items-center gap-3">
-            <i data-lucide="layout-dashboard" class="w-5 h-5 text-zinc-400"></i>
-            <div>
-              <div class="text-sm font-medium">Painel de OS</div>
-              <div class="text-[11px] text-zinc-500">Kanban &amp; Tabela</div>
-            </div>
-          </div>
-          <span id="sidebarTotalBadge" class="bg-zinc-800 text-zinc-400 text-[10px] font-bold px-2 py-0.5 rounded-full">0</span>
+          <span id="sidebarTotalBadge" class="bg-red-500/30 text-red-300 text-[10px] font-bold px-2 py-0.5 rounded-full">0</span>
         </button>
 
         <button onclick="navegarPara('dashboard')" id="nav-btn-dashboard" class="nav-item w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-left transition-all text-zinc-300 hover:text-white hover:bg-zinc-900 border border-transparent">
@@ -198,94 +188,7 @@
     <main class="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
       <div class="max-w-7xl mx-auto">
         
-        <!-- SECTION 1: PAINEL DE OS (KANBAN / TABELA) -->
-        <section id="section-painel" class="hidden space-y-5">
-          <!-- Control Bar -->
-          <div class="bg-white p-4 sm:p-5 rounded-2xl border border-zinc-200 shadow-xs space-y-3">
-            <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
-              <div class="relative flex-1 max-w-md">
-                <i data-lucide="search" class="w-4 h-4 text-zinc-400 absolute left-3.5 top-3"></i>
-                <input type="text" id="inputBuscaPainel" placeholder="Pesquisar por ID, descrição, solicitante, setor..." class="w-full pl-10 pr-4 py-2 rounded-xl border border-zinc-300 focus:ring-2 focus:ring-red-500 outline-none text-xs sm:text-sm text-zinc-900 shadow-xs">
-              </div>
-
-              <div class="flex items-center gap-2 self-end md:self-auto">
-                <div class="flex items-center bg-zinc-100 p-1 rounded-xl border border-zinc-200 text-xs font-semibold">
-                  <button id="btnViewKanban" onclick="setModoVisualizacao('kanban')" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-zinc-900 shadow-xs transition-all">
-                    <i data-lucide="layout-grid" class="w-4 h-4"></i>
-                    <span>Kanban</span>
-                  </button>
-                  <button id="btnViewTabela" onclick="setModoVisualizacao('tabela')" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-zinc-600 hover:text-zinc-900 transition-all">
-                    <i data-lucide="table" class="w-4 h-4"></i>
-                    <span>Tabela</span>
-                  </button>
-                </div>
-
-                <button onclick="navegarPara('cadastro')" class="flex items-center gap-1.5 px-3.5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-colors shadow-xs">
-                  <i data-lucide="plus-circle" class="w-4 h-4"></i>
-                  <span>Nova OS</span>
-                </button>
-              </div>
-            </div>
-
-            <!-- Quick Filter Pills -->
-            <div class="flex items-center justify-between flex-wrap gap-2 pt-2 border-t border-zinc-100 text-xs">
-              <div class="flex items-center gap-1.5 flex-wrap" id="painelFilterPills">
-                <button onclick="filtrarPainelStatus('todos')" class="filter-pill active px-3 py-1 rounded-full font-semibold bg-zinc-900 text-white">Todas (<span id="countPillTodas">0</span>)</button>
-                <button onclick="filtrarPainelStatus('Pendente')" class="filter-pill px-3 py-1 rounded-full font-semibold bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100">Pendentes (<span id="countPillPendentes">0</span>)</button>
-                <button onclick="filtrarPainelStatus('Em execução')" class="filter-pill px-3 py-1 rounded-full font-semibold bg-blue-50 text-blue-800 border border-blue-200 hover:bg-blue-100">Em Execução (<span id="countPillExecucao">0</span>)</button>
-                <button id="btnToggleUrgentesFiltro" onclick="toggleFiltroUrgentes()" class="flex items-center gap-1 px-3 py-1 rounded-full font-bold border bg-red-50 text-red-700 border-red-200 hover:bg-red-100">
-                  <i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i>
-                  <span>Apenas Urgentes (<span id="countPillUrgentes">0</span>)</span>
-                </button>
-              </div>
-
-              <!-- Executante Dropdown -->
-              <div class="flex items-center gap-1.5">
-                <i data-lucide="user" class="w-3.5 h-3.5 text-zinc-400"></i>
-                <select id="selectFiltroExecutantePainel" onchange="renderizarPainel()" class="px-2.5 py-1 bg-zinc-50 border border-zinc-200 rounded-lg text-xs font-semibold text-zinc-700 outline-none">
-                  <option value="todos">Todos os Executantes</option>
-                  <option value="Guilherme">Guilherme</option>
-                  <option value="Ismael">Ismael</option>
-                  <option value="Robson">Robson</option>
-                  <option value="Técnico Externo">Técnico Externo</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          <!-- KANBAN VIEW CONTAINER -->
-          <div id="containerKanban" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-start">
-            <!-- Columns injected by JS -->
-          </div>
-
-          <!-- TABELA VIEW CONTAINER -->
-          <div id="containerTabela" class="hidden bg-white rounded-2xl border border-zinc-200 shadow-xs overflow-hidden">
-            <div class="overflow-x-auto">
-              <table class="w-full text-left text-xs text-zinc-700">
-                <thead class="bg-zinc-100 text-zinc-600 font-bold uppercase tracking-wider border-b border-zinc-200">
-                  <tr>
-                    <th class="py-3.5 px-4">ID</th>
-                    <th class="py-3.5 px-4">Status</th>
-                    <th class="py-3.5 px-4">Prioridade</th>
-                    <th class="py-3.5 px-4 min-w-[220px]">Descrição</th>
-                    <th class="py-3.5 px-4">Solicitante</th>
-                    <th class="py-3.5 px-4">Local</th>
-                    <th class="py-3.5 px-4">Tipo</th>
-                    <th class="py-3.5 px-4">Executante</th>
-                    <th class="py-3.5 px-4">Abertura</th>
-                    <th class="py-3.5 px-4">Conclusão</th>
-                    <th class="py-3.5 px-4 text-right">Ações</th>
-                  </tr>
-                </thead>
-                <tbody id="tabelaOrdensBody" class="divide-y divide-zinc-200">
-                  <!-- Rows injected by JS -->
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </section>
-
-        <!-- SECTION 2: CADASTRAR OS -->
+        <!-- SECTION 1: CADASTRAR OS -->
         <section id="section-cadastro" class="space-y-6">
           <div class="bg-gradient-to-r from-zinc-900 to-zinc-800 text-white p-6 rounded-2xl border border-zinc-700/60 shadow-md">
             <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -802,9 +705,6 @@
     let supabaseClient = null;
     let ordens = [];
     let supervisaoAutenticada = false;
-    let modoVisualizacao = 'kanban';
-    let filtroStatusPainel = 'todos';
-    let apenasUrgentesPainel = false;
     let dashboardPeriodo = 'Todos';
     let osIdParaExcluir = null;
 
@@ -916,7 +816,6 @@
         }
 
         atualizarContadoresNavbar();
-        renderizarPainel();
         renderizarListaUltimasAbertas();
         atualizarDashboard();
         renderizarSnapshots();
@@ -947,11 +846,6 @@
       } else {
         pillUrgentes.classList.add('hidden');
       }
-
-      document.getElementById('countPillTodas').textContent = ordens.length;
-      document.getElementById('countPillPendentes').textContent = pendentes;
-      document.getElementById('countPillExecucao').textContent = execucao;
-      document.getElementById('countPillUrgentes').textContent = urgentes;
     }
 
     /* NAVIGATION */
@@ -977,180 +871,6 @@
       if (secao === 'backups') renderizarSnapshots();
     }
 
-    function setModoVisualizacao(modo) {
-      modoVisualizacao = modo;
-      const btnKanban = document.getElementById('btnViewKanban');
-      const btnTabela = document.getElementById('btnViewTabela');
-      const boxKanban = document.getElementById('containerKanban');
-      const boxTabela = document.getElementById('containerTabela');
-
-      if (modo === 'kanban') {
-        btnKanban.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-zinc-900 shadow-xs transition-all';
-        btnTabela.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-zinc-600 hover:text-zinc-900 transition-all';
-        boxKanban.classList.remove('hidden');
-        boxTabela.classList.add('hidden');
-      } else {
-        btnTabela.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-zinc-900 shadow-xs transition-all';
-        btnKanban.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-zinc-600 hover:text-zinc-900 transition-all';
-        boxTabela.classList.remove('hidden');
-        boxKanban.classList.add('hidden');
-      }
-      renderizarPainel();
-    }
-
-    function filtrarPainelStatus(st) {
-      filtroStatusPainel = st;
-      document.querySelectorAll('#painelFilterPills .filter-pill').forEach(b => {
-        b.className = 'filter-pill px-3 py-1 rounded-full font-semibold bg-zinc-100 text-zinc-600 hover:bg-zinc-200';
-      });
-      event.target.className = 'filter-pill active px-3 py-1 rounded-full font-semibold bg-zinc-900 text-white';
-      renderizarPainel();
-    }
-
-    function toggleFiltroUrgentes() {
-      apenasUrgentesPainel = !apenasUrgentesPainel;
-      const btn = document.getElementById('btnToggleUrgentesFiltro');
-      if (apenasUrgentesPainel) {
-        btn.className = 'flex items-center gap-1 px-3 py-1 rounded-full font-bold border bg-red-600 text-white border-red-600 shadow-xs';
-      } else {
-        btn.className = 'flex items-center gap-1 px-3 py-1 rounded-full font-bold border bg-red-50 text-red-700 border-red-200 hover:bg-red-100';
-      }
-      renderizarPainel();
-    }
-
-    function obterOrdensFiltradasPainel() {
-      const termo = (document.getElementById('inputBuscaPainel')?.value || '').toLowerCase();
-      const filtroExec = document.getElementById('selectFiltroExecutantePainel')?.value || 'todos';
-
-      return ordens.filter(os => {
-        if (apenasUrgentesPainel && os.urgente !== 'Sim') return false;
-        if (filtroStatusPainel !== 'todos' && os.status !== filtroStatusPainel) return false;
-        if (filtroExec !== 'todos' && os.executante1 !== filtroExec && os.executante2 !== filtroExec) return false;
-        if (!termo) return true;
-
-        return (
-          String(os.id).includes(termo) ||
-          os.descricao.toLowerCase().includes(termo) ||
-          os.solicitante.toLowerCase().includes(termo) ||
-          os.local.toLowerCase().includes(termo) ||
-          os.tipo.toLowerCase().includes(termo) ||
-          os.executante1.toLowerCase().includes(termo)
-        );
-      });
-    }
-
-    /* RENDER KANBAN & TABLE */
-    function renderizarPainel() {
-      const lista = obterOrdensFiltradasPainel();
-      if (modoVisualizacao === 'kanban') {
-        renderizarKanban(lista);
-      } else {
-        renderizarTabela(lista);
-      }
-      lucide.createIcons();
-    }
-
-    function renderizarKanban(lista) {
-      const colunas = [
-        { status: 'Pendente', titulo: 'Pendentes', headerClass: 'bg-amber-50 text-amber-900 border-amber-200', dot: 'bg-amber-500' },
-        { status: 'Em execução', titulo: 'Em Execução', headerClass: 'bg-blue-50 text-blue-900 border-blue-200', dot: 'bg-blue-500' },
-        { status: 'Pausado', titulo: 'Pausados', headerClass: 'bg-zinc-100 text-zinc-900 border-zinc-200', dot: 'bg-zinc-500' },
-        { status: 'Concluído', titulo: 'Concluídos', headerClass: 'bg-emerald-50 text-emerald-900 border-emerald-200', dot: 'bg-emerald-500' }
-      ];
-
-      const container = document.getElementById('containerKanban');
-      container.innerHTML = colunas.map(col => {
-        const itens = lista.filter(o => o.status === col.status);
-        return `
-          <div class="bg-zinc-100/90 rounded-2xl p-3 border border-zinc-200/80 flex flex-col min-h-[480px]">
-            <div class="flex items-center justify-between px-3 py-2.5 rounded-xl border mb-3 ${col.headerClass} font-bold text-xs uppercase tracking-wider">
-              <div class="flex items-center gap-2">
-                <span class="w-2 h-2 rounded-full ${col.dot}"></span>
-                <span>${col.titulo}</span>
-              </div>
-              <span class="bg-white/90 px-2 py-0.5 rounded-full text-zinc-800 text-[11px] font-black">${itens.length}</span>
-            </div>
-
-            <div class="flex-1 space-y-3 overflow-y-auto max-h-[calc(100vh-16rem)] pr-0.5">
-              ${itens.length === 0 ? `
-                <div class="text-center py-12 px-4 rounded-xl border border-dashed border-zinc-300 text-zinc-400 text-xs font-medium">Nenhuma ordem neste status</div>
-              ` : itens.map(os => `
-                <div onclick="abrirModalDetalhe(${os.id})" class="bg-white rounded-xl p-3.5 border shadow-xs hover:shadow-md transition-all cursor-pointer group relative ${os.urgente === 'Sim' ? 'border-red-300 ring-1 ring-red-400/30' : 'border-zinc-200/90'}">
-                  <div class="flex items-center justify-between gap-2 mb-2">
-                    <div class="flex items-center gap-1.5">
-                      <span class="font-extrabold text-xs text-zinc-900 bg-zinc-100 px-2 py-0.5 rounded border border-zinc-200">#${os.id}</span>
-                      ${os.urgente === 'Sim' ? '<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-300 animate-pulse">URGENTE</span>' : ''}
-                    </div>
-                    ${os.tipo ? `<span class="text-[10px] font-bold px-2 py-0.5 rounded bg-zinc-100 text-zinc-600 border border-zinc-200">${os.tipo}</span>` : ''}
-                  </div>
-
-                  <p class="font-semibold text-zinc-800 text-xs sm:text-sm line-clamp-2 leading-snug mb-2 group-hover:text-red-700 transition-colors">${escapeHtml(os.descricao)}</p>
-
-                  <div class="space-y-1 text-[11px] text-zinc-600 mb-3 bg-zinc-50 p-2 rounded-lg border border-zinc-100">
-                    <div class="truncate">👤 ${escapeHtml(os.solicitante)}</div>
-                    <div class="truncate font-medium">📍 ${escapeHtml(os.local)}</div>
-                  </div>
-
-                  <div class="flex items-center justify-between text-[10px] text-zinc-400 pt-2 border-t border-zinc-100">
-                    <span class="font-semibold text-zinc-700">${os.executante1 ? `🔧 ${escapeHtml(os.executante1)}` : '<em>Sem técnico</em>'}</span>
-                    <span>${os.data}</span>
-                  </div>
-
-                  <div class="mt-3 pt-2 border-t border-zinc-100 flex items-center justify-between" onclick="event.stopPropagation()">
-                    <button onclick="abrirModalFicha(${os.id})" class="p-1 text-zinc-400 hover:text-zinc-800 rounded hover:bg-zinc-100" title="Imprimir Ficha">
-                      <i data-lucide="printer" class="w-3.5 h-3.5"></i>
-                    </button>
-                    <div>
-                      ${os.status === 'Pendente' ? `
-                        <button onclick="avancarStatusRapido(${os.id}, 'Em execução')" class="px-2.5 py-1 text-[11px] font-bold rounded-lg text-white bg-blue-600 hover:bg-blue-700 transition-colors">Iniciar</button>
-                      ` : os.status === 'Em execução' ? `
-                        <button onclick="avancarStatusRapido(${os.id}, 'Concluído')" class="px-2.5 py-1 text-[11px] font-bold rounded-lg text-white bg-emerald-600 hover:bg-emerald-700 transition-colors">Concluir</button>
-                      ` : os.status === 'Pausado' ? `
-                        <button onclick="avancarStatusRapido(${os.id}, 'Em execução')" class="px-2.5 py-1 text-[11px] font-bold rounded-lg text-white bg-zinc-700 hover:bg-zinc-800 transition-colors">Retomar</button>
-                      ` : `
-                        <span class="text-[10px] text-emerald-700 font-bold">✓ ${os.data_conclusao || 'Concluído'}</span>
-                      `}
-                    </div>
-                  </div>
-                </div>
-              `).join('')}
-            </div>
-          </div>
-        `;
-      }).join('');
-    }
-
-    function renderizarTabela(lista) {
-      const tbody = document.getElementById('tabelaOrdensBody');
-      if (lista.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="11" class="py-12 text-center text-zinc-400 font-medium">Nenhuma ordem encontrada.</td></tr>';
-        return;
-      }
-
-      tbody.innerHTML = lista.map(os => `
-        <tr onclick="abrirModalDetalhe(${os.id})" class="hover:bg-zinc-50 transition-colors cursor-pointer ${os.urgente === 'Sim' ? 'bg-red-50/20' : ''}">
-          <td class="py-3 px-4 font-black text-red-600">#${os.id}</td>
-          <td class="py-3 px-4"><span class="px-2 py-0.5 rounded-full text-xs font-bold ${getBadgeClasses(os.status)}">${os.status}</span></td>
-          <td class="py-3 px-4">${os.urgente === 'Sim' ? '<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-300">URGENTE</span>' : '<span class="text-zinc-400">Normal</span>'}</td>
-          <td class="py-3 px-4 max-w-xs font-semibold text-zinc-900 truncate">${escapeHtml(os.descricao)}</td>
-          <td class="py-3 px-4 font-medium text-zinc-800">${escapeHtml(os.solicitante)}</td>
-          <td class="py-3 px-4 text-zinc-700">${escapeHtml(os.local)}</td>
-          <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-zinc-100 border border-zinc-200 font-medium">${os.tipo}</span></td>
-          <td class="py-3 px-4 font-semibold text-zinc-800">${os.executante1 || '<span class="text-zinc-400 italic">Pendente</span>'}</td>
-          <td class="py-3 px-4 text-zinc-600">${os.data}</td>
-          <td class="py-3 px-4 text-zinc-600">${os.data_conclusao ? `<span class="font-bold text-emerald-700">${os.data_conclusao}</span>` : '-'}</td>
-          <td class="py-3 px-4 text-right" onclick="event.stopPropagation()">
-            <button onclick="abrirModalFicha(${os.id})" class="p-1.5 text-zinc-500 hover:text-zinc-900 rounded hover:bg-zinc-200">
-              <i data-lucide="printer" class="w-4 h-4"></i>
-            </button>
-            <button onclick="abrirModalDetalhe(${os.id})" class="p-1.5 text-zinc-500 hover:text-red-600 rounded hover:bg-zinc-200">
-              <i data-lucide="eye" class="w-4 h-4"></i>
-            </button>
-          </td>
-        </tr>
-      `).join('');
-    }
-
     function getBadgeClasses(status) {
       if (status === 'Pendente') return 'bg-amber-50 text-amber-800 border border-amber-200';
       if (status === 'Em execução') return 'bg-blue-50 text-blue-800 border border-blue-200';
@@ -1174,9 +894,6 @@
 
       // Recarregar
       document.getElementById('btnRecarregarSupabase')?.addEventListener('click', () => carregarDados(true));
-
-      // Busca painel input
-      document.getElementById('inputBuscaPainel')?.addEventListener('input', renderizarPainel);
 
       // Card Urgente toggle
       document.getElementById('cardToggleUrgente')?.addEventListener('click', () => {
@@ -1243,7 +960,7 @@
           document.getElementById('formCadastrarOS').reset();
           updatePreview();
           await carregarDados(false);
-          navegarPara('painel');
+          navegarPara('cadastro');
         } catch (err) {
           alert('Erro ao salvar no Supabase: ' + err.message);
         } finally {
